@@ -2,6 +2,8 @@ from flask import Flask
 from rpi_ws281x import PixelStrip, Color
 import time
 
+import colors
+
 app = Flask(__name__)
 
 # LED strip configuration:
@@ -17,25 +19,13 @@ LED_CHANNEL = 0         # PWM channel
 strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
 strip.begin()
 
-# Function to generate colors in a wheel
-def wheel(pos):
-    """Generate a rainbow color based on position (0-255)."""
-    if pos < 85:
-        return Color(pos * 3, 255 - pos * 3, 0)
-    elif pos < 170:
-        pos -= 85
-        return Color(255 - pos * 3, 0, pos * 3)
-    else:
-        pos -= 170
-        return Color(0, pos * 3, 255 - pos * 3)
-
 # Function to run the wheel effect
 def color_wheel(strip, wait_ms=20, iterations=1):
     """Perform a color wheel effect over the strip."""
     for _ in range(iterations):
         for j in range(256):  # 0-255 for color wheel
             for i in range(strip.numPixels()):
-                strip.setPixelColor(i, wheel((i + j) & 255))
+                strip.setPixelColor(i, colors.wheel((i + j) & 255))
             strip.show()
             time.sleep(wait_ms / 1000.0)
 
@@ -50,11 +40,19 @@ def wheel_route():
     color_wheel(strip, wait_ms=20, iterations=1)  # Perform one full wheel rotation
     return 'Color Wheel Effect Completed'
 
+@app.route('/lime-green')
+def lime_green():
+    for i in range(strip.numPixels()):
+        strip.setPixelColor(i, colors.LIME_GREEN)
+    strip.show()
+    print("lime green")
+    return 'lime green'
+
 @app.route('/off')
 def turn_off():
     """Turn all LEDs off."""
     for i in range(strip.numPixels()):
-        strip.setPixelColor(i, Color(0, 0, 0))
+        strip.setPixelColor(i, colors.OFF)
     strip.show()
     print("LEDs are off")
     return 'LEDs turned off'
