@@ -20,6 +20,6 @@ def color_wheel(strip, wait_ms=20, iterations=1):
 
 def display_bits(strip, bits):
     for i in range(len(bits) - 1):
-        color = colors.GREEN if x else colors.RED
+        color = colors.GREEN if bits[i] else colors.RED
         strip.setPixelColor(i, color)
     strip.show()
