@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 from rpi_ws281x import PixelStrip, Color
 import time
 import asyncio
