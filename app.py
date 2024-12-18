@@ -66,6 +66,11 @@ def flash():
     effects.flash(strip)
     return 'flash success'
 
+@app.route('/leapfrog')
+def leapfrog():
+    effects.leap_frog(strip)
+    return 'leap frog success'
+
 @app.route('/bits', methods=['POST'])
 def display_bits():
     """expects a list of 1s and 0s in the payload"""

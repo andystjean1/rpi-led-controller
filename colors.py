@@ -5,11 +5,12 @@ OFF = Color(0 , 0, 0)
 RED = Color(255, 0, 0)
 GREEN = Color(0, 255, 0)
 BLUE = Color(0, 0, 255)
+YELLOW = Color(150, 100, 0)
+ORANGE = Color(200, 20, 0)
+PURPLE = Color(255, 0, 255)
+WHITE = Color(255, 255, 255)
+
 LIME_GREEN = Color(50,205,50)
-
-
-
-
 
 # Function to generate colors in a wheel
 def wheel(pos):
@@ -22,3 +23,12 @@ def wheel(pos):
     else:
         pos -= 170
         return Color(0, pos * 3, 255 - pos * 3)
+
+def red_hue(r):
+    return Color(r, 0, 0)
+
+def blue_hue(b):
+    return Color (0, 0, b)
+
+def green_hue(g):
+    return Color (0, g, 0)
