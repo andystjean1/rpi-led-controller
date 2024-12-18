@@ -1,6 +1,7 @@
 
 import rpi_ws281x
 import colors
+import time
 
 def fill_strip(strip, color):
     for i in range(strip.numPixels()):
