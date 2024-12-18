@@ -11,7 +11,7 @@ def fill_strip(strip, color):
     # Function to run the wheel effect
 def color_wheel(strip, wait_ms=20, iterations=1):
     """Perform a color wheel effect over the strip."""
-    for _ in range(iterations):
+    while True:
         for j in range(256):  # 0-255 for color wheel
             for i in range(strip.numPixels()):
                 strip.setPixelColor(i, colors.wheel((i + j) & 255))
