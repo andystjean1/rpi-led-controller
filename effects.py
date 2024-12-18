@@ -69,9 +69,11 @@ def warm_wheel(strip, window_size=5, iterations=3):
             # Set the current window of lights
             for j in range(window_size):
                 pixel_index = (i + j) % num_pixels
+                idx = (i+j) % num_pixels
+                color_idx = ((idx * 256 // num_pixel) % 256)
                 strip.setPixelColor(pixel_index, colors.warm_wheel(i+j))
 
             # Show the updated strip
             strip.show()
-            time.sleep(0.2)
+            time.sleep(0.1)
 
