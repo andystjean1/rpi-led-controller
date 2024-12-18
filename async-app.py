@@ -60,17 +60,17 @@ def index():
 def wheel_route():
     """Trigger the wheel effect."""
     start_effect(effects.color_wheel, strip, wait_ms=20, iterations=None)  # Continuous loop
-    return jsonify({"status": "success", "message": "Color Wheel Effect Started"})
+    return "success color wheel"
 
 @app.route('/lime-green')
 def lime_green():
     start_effect(effects.fill_strip, strip, colors.LIME_GREEN)
-    return jsonify({"status": "success", "message": "Lime Green Effect Started"})
+    return "success lime green"
 
 @app.route('/start-race')
 def start_race():
     start_effect(light_race.race, strip)
-    return jsonify({"status": "success", "message": "Race Effect Started"})
+    return "race started"
 
 @app.route('/off')
 def turn_off():
@@ -81,7 +81,7 @@ def turn_off():
         if effect_thread and effect_thread.is_alive():
             effect_thread.join()
         effects.fill_strip(strip, colors.OFF)
-    return jsonify({"status": "success", "message": "LEDs Turned Off"})
+    return "off"
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
