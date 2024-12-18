@@ -19,7 +19,7 @@ def color_wheel(strip, wait_ms=20, iterations=1):
             time.sleep(wait_ms / 1000.0)
 
 def display_bits(strip, bits):
-    for i in range(len(bits) - 1):
+    for i in range(len(bits)):
         color = colors.OFF
         if(bits[i] > 0):
             color = colors.GREEN
