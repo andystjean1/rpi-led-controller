@@ -71,7 +71,7 @@ def warm_wheel(strip, window_size=5, iterations=3):
                 pixel_index = (i + j) % num_pixels
                 idx = (i+j) % num_pixels
                 color_idx = ((idx * 256 // num_pixels) % 256)
-                strip.setPixelColor(pixel_index, colors.warm_wheel(i+j))
+                strip.setPixelColor(pixel_index, colors.warm_wheel(color_idx))
 
             # Show the updated strip
             strip.show()
