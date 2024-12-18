@@ -30,10 +30,11 @@ def display_bits(strip, bits):
     strip.show()
 
 def flash(strip):
-    iterations = 5
+    iterations = 20
     for i in range(iterations):
         for j in range(strip.numPixels()):
-            condition = (i % 2) and (j % 2)
-            color = colors.GREEN if condition else colors.OFF
+            condition = (i % 2) == (j % 2)
+            color = colors.wheel(i) if condition else colors.OFF
             strip.setPixelColor(j, color)
         strip.show()
+        time.sleep(0.5)
