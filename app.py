@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, render_template
 from rpi_ws281x import PixelStrip, Color
 import time
 import asyncio
@@ -25,7 +25,7 @@ strip.begin()
 
 @app.route('/')
 def index():
-    return 'Hello World'
+    return render_template('index.html')
 
 @app.route('/wheel')
 def wheel_route():

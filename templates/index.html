@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LED Controller</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            padding: 20px;
+        }
+        button {
+            width: 90%;
+            max-width: 300px;
+            padding: 15px;
+            margin: 10px auto;
+            font-size: 18px;
+            color: white;
+            background-color: #007BFF;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:active {
+            background-color: #0056b3;
+        }
+        button.off {
+            background-color: #FF0000;
+        }
+        button.off:active {
+            background-color: #cc0000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>LED Controller</h1>
+        <button onclick="triggerEndpoint('/wheel')">Color Wheel Effect</button>
+        <button onclick="triggerEndpoint('/lime-green')">Lime Green</button>
+        <button onclick="triggerEndpoint('/start-race')">Start Race</button>
+        <button class="off" onclick="triggerEndpoint('/off')">Turn Off</button>
+    </div>
+
+    <script>
+        async function triggerEndpoint(endpoint) {
+            try {
+                const response = await fetch(endpoint, { method: 'GET' });
+                const text = await response.text();
+                alert(text);
+            } catch (error) {
+                alert('Error: Unable to trigger the endpoint');
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html>
