@@ -48,7 +48,7 @@ def start_race():
 @app.route('/off')
 def turn_off():
     """Turn all LEDs off."""
-    effects.fill_strip(colors.OFF)
+    effects.fill_strip(strip, colors.OFF)
     print("LEDs are off")
     return 'LEDs turned off'
 
