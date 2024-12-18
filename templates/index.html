@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,9 +13,11 @@
             padding: 0;
             background-color: #f0f0f0;
         }
+
         .container {
             padding: 20px;
         }
+
         button {
             width: 90%;
             max-width: 300px;
@@ -27,17 +30,21 @@
             border-radius: 5px;
             cursor: pointer;
         }
+
         button:active {
             background-color: #0056b3;
         }
+
         button.off {
             background-color: #FF0000;
         }
+
         button.off:active {
             background-color: #cc0000;
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>LED Controller</h1>
@@ -45,6 +52,9 @@
         <button onclick="triggerEndpoint('/lime-green')">Lime Green</button>
         <button onclick="triggerEndpoint('/start-race')">Start Race</button>
         <button class="off" onclick="triggerEndpoint('/off')">Turn Off</button>
+        <h2>Text Effect</h2>
+        <input id="textInput" type="text" placeholder="Enter text for LED effect" />
+        <button onclick="sendTextEffect()">Send Text Effect</button>
     </div>
 
     <script>
@@ -58,6 +68,36 @@
                 console.error(error);
             }
         }
+
+        function sendTextEffect() {
+        const text = document.getElementById("textInput").value;
+        if (!text) {
+            alert("Please enter some text.");
+            return;
+        }
+
+        fetch("/text_effect", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ text }),
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error("Network response was not ok");
+                }
+                return response.json();
+            })
+            .then((data) => {
+                console.log(data);
+                alert("Text effect sent successfully!");
+            })
+            .catch((error) => {
+                console.error("There was a problem with the fetch operation:", error);
+            });
+        }
     </script>
 </body>
+
 </html>
