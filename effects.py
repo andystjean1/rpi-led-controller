@@ -77,3 +77,34 @@ def warm_wheel(strip, window_size=5, iterations=3):
             strip.show()
             time.sleep(0.1)
 
+def bouncing_window(strip, window_size=5, iterations=10, wait_ms=50):
+    num_pixels = strip.numPixels()
+    direction = 1  # 1 for forward, -1 for backward
+    position = 0
+
+    for _ in range(iterations):
+        for _ in range(num_pixels - window_size + 1):
+            # Turn off all LEDs
+            for i in range(num_pixels):
+                strip.setPixelColor(i, colors.OFF)
+
+            # Light up the window
+            for j in range(window_size):
+                pixel_index = position + j
+                if pixel_index < num_pixels:
+                    strip.setPixelColor(
+                        pixel_index, colors.BLUE if j % 2 == 0 else colors.PURPLE
+                    )
+
+            # Show the strip
+            strip.show()
+            time.sleep(wait_ms / 1000.0)
+
+            # Update position
+            position += direction
+
+            # Reverse direction at edges
+            if position == 0 or position == num_pixels - window_size:
+                direction *= -1
+
+

@@ -76,6 +76,11 @@ def leapfrog():
     effects.leap_frog(strip)
     return 'leap frog success'
 
+@app.route('/bounce')
+def bounce():
+    effects.bouncing_window(strip)
+    return "bounce success"
+
 @app.route('/bits', methods=['POST'])
 def display_bits():
     """expects a list of 1s and 0s in the payload"""
