@@ -1,4 +1,4 @@
-import openai
+from openai import OpenAI
 from rpi_ws281x import PixelStrip, Color
 import numpy as np
 import os
@@ -6,16 +6,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # OpenAI API Key (replace with your key)
-openai.api_key = os.getenv('OPENAI_API_KEY')
+client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
 
 def get_embeddings(text):
     """Generate embeddings for the input text using OpenAI."""
-    response = openai.Embedding.create(
+    response = client.embeddings.create(
         model="text-embedding-ada-002",
         input=text
     )
-    return response["data"][0]["embedding"]
+    print(response)
+    return response.data[0].embedding
 
 
 def normalize_embeddings(embeddings, count):
