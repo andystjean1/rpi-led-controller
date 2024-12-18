@@ -7,6 +7,7 @@ import asyncio
 import light_race
 import colors
 import effects
+import embeddings
 
 app = Flask(__name__)
 
@@ -44,6 +45,21 @@ def lime_green():
 def start_race():
     await asyncio.run(light_race.race(strip))
     return 'race ran'
+
+@app.route('/text_effect', methods=['POST'])
+def text_effect():
+    """Endpoint to trigger the text-to-LED effect."""
+    data = request.json
+    text = data.get("text", "")
+
+    if not text:
+        return jsonify({"error": "Text input is required"}), 400
+
+    try:
+        embeddings.display_text_as_lights(text)
+        return jsonify({"status": "Effect displayed for text", "text": text})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/off')
 def turn_off():
