@@ -29,10 +29,10 @@ def normalize_embeddings(embeddings, count):
 def display_text_as_lights(strip, text):
     """Display text embeddings on the LED strip."""
     embeddings = get_embeddings(text)  # Generate embeddings
-    colors = normalize_embeddings(embeddings, LED_COUNT)  # Normalize to RGB values
+    colors = normalize_embeddings(embeddings, strip.numPixels()-1)  # Normalize to RGB values
 
     # Map colors to the LED strip
-    for i in range(LED_COUNT):
+    for i in range(strip.NumPixels() -1):
         r, g, b = colors[i * 3:i * 3 + 3]
         strip.setPixelColor(i, Color(r, g, b))
     strip.show()
