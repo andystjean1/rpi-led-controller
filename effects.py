@@ -39,10 +39,21 @@ def flash(strip):
         strip.show()
         time.sleep(0.5)
 
-def leap_frog(strip):
-    for i in range(1, strip.numPixels() - 1):
-        strip.setPixelColor(i, colors.RED if i % 2 else colors.PURPLE)
-        strip.setPixelColor(i+1, colors.PURPLE if i %2 else colors.RED)
-        strip.setPixelColor(i-1, colors.OFF)
-        strip.show()
-        time.sleep(0.2)
+def leap_frog(strip, window_size=5, iterations=3):
+    num_pixels = strip.numPixels()
+
+    for _ in range(iterations):
+        for i in range(num_pixels):
+            # Clear the LED just before the current window
+            clear_index = (i - 1) % num_pixels
+            strip.setPixelColor(clear_index, colors.OFF)
+
+            # Set the current window of lights
+            for j in range(window_size):
+                pixel_index = (i + j) % num_pixels
+                strip.setPixelColor(pixel_index, colors.RED if j % 2 == 0 else colors.PURPLE)
+
+            # Show the updated strip
+            strip.show()
+            time.sleep(0.2)
+
