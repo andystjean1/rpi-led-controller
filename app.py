@@ -1,13 +1,16 @@
 from flask import Flask
 from rpi_ws281x import PixelStrip, Color
 import time
+import asyncio
 
+#custom mods
+import light_race
 import colors
 
 app = Flask(__name__)
 
 # LED strip configuration:
-LED_COUNT = 90          # Number of LEDs
+LED_COUNT = 120          # Number of LEDs
 LED_PIN = 18            # GPIO pin connected to the pixels (PWM pin)
 LED_FREQ_HZ = 800000    # LED signal frequency (800kHz)
 LED_DMA = 5             # DMA channel
@@ -47,6 +50,12 @@ def lime_green():
     strip.show()
     print("lime green")
     return 'lime green'
+
+@app.route('/start-race')
+def start_race():
+    asyncio.run(light_race.race(strip))
+    return 'race started'
+
 
 @app.route('/off')
 def turn_off():
