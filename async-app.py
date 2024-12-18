@@ -39,7 +39,7 @@ def effect_runner(effect_function, *args, **kwargs):
 def start_effect(effect_function, *args, **kwargs):
     """Starts a new effect, stopping the current one if necessary."""
     global current_effect, effect_thread, running
-
+    print(effect_lock)
     with effect_lock:
         # Stop any currently running effect
         if effect_thread and effect_thread.is_alive():

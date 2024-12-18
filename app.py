@@ -61,6 +61,11 @@ def text_effect():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/flash')
+def flash():
+    effects.flash(strip)
+    return 'flash success'
+
 @app.route('/bits', methods=['POST'])
 def display_bits():
     """expects a list of 1s and 0s in the payload"""
