@@ -40,8 +40,9 @@ def flash(strip):
         time.sleep(0.5)
 
 def leap_frog(strip):
-    for i in range(strip.numPixels() - 1):
+    for i in range(1, strip.numPixels() - 1):
         strip.setPixelColor(i, colors.RED if i % 2 else colors.PURPLE)
         strip.setPixelColor(i+1, colors.PURPLE if i %2 else colors.RED)
+        strip.setPixelColor(i-1, colors.OFF)
         strip.show()
         time.sleep(0.2)
