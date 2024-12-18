@@ -53,8 +53,8 @@ def lime_green():
 
 @app.route('/start-race')
 def start_race():
-    asyncio.run(light_race.race(strip))
-    return 'race started'
+    await asyncio.run(light_race.race(strip))
+    return 'race ran'
 
 
 @app.route('/off')

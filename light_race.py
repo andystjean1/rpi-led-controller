@@ -11,6 +11,8 @@ racers = [
     {"color": Color(0, 0, 255), "position": 0, "probability": 0.5}   # Blue racer
 ]
 
+winner_event = asyncio.Event()
+
 def clear_strip(strip):
     """Turn off all LEDs."""
     for i in range(strip.numPixels()):
@@ -48,8 +50,14 @@ async def update_strip(strip, winner_event):
 
 async def race(strip):
     """Main asynchronous race function."""
+    global winner_event
+    global racers
+
+    #reset the strip
     clear_strip(strip)
-    winner_event = asyncio.Event()  # Event to signal a winner
+    winner_event.clear()  
+    for racer in racers:
+        racer["position"] = 0
 
     # Create tasks for racers and LED updating
     tasks = [move_racer(strip, racer, winner_event) for racer in racers]
