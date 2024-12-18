@@ -24,6 +24,18 @@ def wheel(pos):
         pos -= 170
         return Color(0, pos * 3, 255 - pos * 3)
 
+def warm_wheel(pos):
+    """Generate a warm color (red, orange, yellow) based on position (0-255)."""
+    if pos < 85:  # Transition from red to orange
+        return Color(255, pos * 3, 0)  # Increasing green for orange
+    elif pos < 170:  # Transition from orange to yellow
+        pos -= 85
+        return Color(255 - pos * 3, 255, 0)  # Decreasing red for yellow
+    else:  # Transition from yellow back to red
+        pos -= 170
+        return Color(pos * 3, 255 - pos * 3, 0)  # Increasing red, decreasing green
+
+
 def red_hue(r):
     return Color(r, 0, 0)
 

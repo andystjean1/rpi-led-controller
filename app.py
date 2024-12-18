@@ -35,6 +35,11 @@ def wheel_route():
     effects.color_wheel(strip, wait_ms=20, iterations=1)  # Perform one full wheel rotation
     return 'Color Wheel Effect Completed'
 
+@app.route('/warm-wheel')
+def warm_wheel():
+    effects.warm_wheel(strip)
+    return 'warm wheel'
+
 @app.route('/lime-green')
 def lime_green():
     effects.fill_strip(strip, colors.LIME_GREEN)
