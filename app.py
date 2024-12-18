@@ -6,6 +6,7 @@ import asyncio
 #custom mods
 import light_race
 import colors
+import effects
 
 app = Flask(__name__)
 
@@ -22,16 +23,6 @@ LED_CHANNEL = 0         # PWM channel
 strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
 strip.begin()
 
-# Function to run the wheel effect
-def color_wheel(strip, wait_ms=20, iterations=1):
-    """Perform a color wheel effect over the strip."""
-    for _ in range(iterations):
-        for j in range(256):  # 0-255 for color wheel
-            for i in range(strip.numPixels()):
-                strip.setPixelColor(i, colors.wheel((i + j) & 255))
-            strip.show()
-            time.sleep(wait_ms / 1000.0)
-
 @app.route('/')
 def index():
     return 'Hello World'
@@ -40,14 +31,12 @@ def index():
 def wheel_route():
     """Trigger the wheel effect."""
     print("Starting color wheel effect")
-    color_wheel(strip, wait_ms=20, iterations=1)  # Perform one full wheel rotation
+    effects.color_wheel(strip, wait_ms=20, iterations=1)  # Perform one full wheel rotation
     return 'Color Wheel Effect Completed'
 
 @app.route('/lime-green')
 def lime_green():
-    for i in range(strip.numPixels()):
-        strip.setPixelColor(i, colors.LIME_GREEN)
-    strip.show()
+    effects.fill_strip(strip, colors.LIME_GREEN)
     print("lime green")
     return 'lime green'
 
@@ -56,13 +45,10 @@ def start_race():
     await asyncio.run(light_race.race(strip))
     return 'race ran'
 
-
 @app.route('/off')
 def turn_off():
     """Turn all LEDs off."""
-    for i in range(strip.numPixels()):
-        strip.setPixelColor(i, colors.OFF)
-    strip.show()
+    effects.fill_strip(colors.OFF)
     print("LEDs are off")
     return 'LEDs turned off'
 
