@@ -61,6 +61,21 @@ def text_effect():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/bits', methods=['POST'])
+def display_bits():
+    """expects a list of 1s and 0s in the payload"""
+    data = request.json
+    bits = data.get("bits")
+
+    print(bits)
+
+    try:
+        effects.display_bits(strip, bits)
+        return "success"
+    except Exception as e:
+        print(e)
+        return "error"
+
 @app.route('/off')
 def turn_off():
     """Turn all LEDs off."""

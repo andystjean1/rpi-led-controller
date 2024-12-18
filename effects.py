@@ -17,3 +17,9 @@ def color_wheel(strip, wait_ms=20, iterations=1):
                 strip.setPixelColor(i, colors.wheel((i + j) & 255))
             strip.show()
             time.sleep(wait_ms / 1000.0)
+
+def display_bits(strip, bits):
+    for i in range(len(bits) - 1):
+        color = colors.GREEN if x else colors.RED
+        strip.setPixelColor(i, color)
+    strip.show()
