@@ -13,12 +13,29 @@ client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 def get_embeddings(text):
     """Generate embeddings for the input text using OpenAI."""
     response = client.embeddings.create(
-        model="text-embedding-ada-002",
-        input=text
+        model="text-embedding-3",
+        input=text,
+        dimensions=120
     )
     print(response)
     return response.data[0].embedding
 
+
+def display_text_as_lights(strip, text):
+    """Display text embeddings on the LED strip."""
+    embeddings = get_embeddings(text)  # Generate embeddings
+    colors = normalize_custom_embeddings(embeddings, strip.numPixels()-1)  # Normalize to RGB values
+
+    # Map colors to the LED strip
+    for i in range(strip.numPixels() -1):
+        c = colors[i]
+        print(c)
+        strip.setPixelColor(i, Color(0, 0, c))
+
+    strip.show()
+
+
+## various embedding functions
 
 def normalize_embeddings(embeddings, count):
     """Normalize embeddings and map to RGB colors for the LED strip."""
@@ -27,24 +44,15 @@ def normalize_embeddings(embeddings, count):
     return normalized.astype(int)
 
 
-def display_text_as_lights(strip, text):
-    """Display text embeddings on the LED strip."""
-    embeddings = get_embeddings(text)  # Generate embeddings
-    colors = normalize_dynamic_embeddings(embeddings, strip.numPixels()-1)  # Normalize to RGB values
-
-    # Map colors to the LED strip
-    for i in range(strip.numPixels() -1):
-        r, g, b = colors[i * 3:i * 3 + 3]
-        strip.setPixelColor(i, Color(r, g, b))
-    strip.show()
-
-
-## various embedding functions
 def normalize_dynamic_embeddings(embeddings, count):
     """Normalize embeddings and map to RGB colors for the LED strip."""
     embeddings = np.array(embeddings[:count * 3])  # Truncate to match LED count * 3 (RGB)
     normalized = ((embeddings - embeddings.min()) / (embeddings.max() - embeddings.min())) * 1024
     normalized = normalized % 255  # Wrap values into RGB range
+    return normalized.astype(int)
+
+def normalize_custom_embeddings(embeddings, count):
+    normalized = ((embeddings - embeddings.min())/(embeddings.max()-embeddings.min())) * 255
     return normalized.astype(int)
 
 
