@@ -13,7 +13,7 @@ client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 def get_embeddings(text):
     """Generate embeddings for the input text using OpenAI."""
     response = client.embeddings.create(
-        model="text-embedding-3",
+        model="text-embedding-3-small",
         input=text,
         dimensions=120
     )
@@ -52,6 +52,7 @@ def normalize_dynamic_embeddings(embeddings, count):
     return normalized.astype(int)
 
 def normalize_custom_embeddings(embeddings, count):
+    embeddings = np.array(embeddings)
     normalized = ((embeddings - embeddings.min())/(embeddings.max()-embeddings.min())) * 255
     return normalized.astype(int)
 
