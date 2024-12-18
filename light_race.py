@@ -31,7 +31,7 @@ async def move_racer(strip, racer, winner_event):
             racer["position"] += 1
 
         # Stop if the racer reaches the end
-        if racer["position"] >= LED_COUNT - 1:
+        if racer["position"] >= strip.numPixels() - 1:
             print(f"Winner found: {racer}")
             winner_event.set()
             await display_winner(strip, racer["color"])
@@ -41,7 +41,7 @@ async def update_strip(strip, winner_event):
     while not winner_event.is_set():
         clear_strip(strip)
         for racer in racers:
-            position = min(racer["position"], LED_COUNT - 1)
+            position = min(racer["position"], strip.numPixels() - 1)
             strip.setPixelColor(position, racer["color"])
         strip.show()
         await asyncio.sleep(0.05)  # Refresh rate for visual updates
