@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice-Controlled LED Controller</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            padding: 20px;
+        }
+
+        button {
+            padding: 15px;
+            margin: 10px;
+            font-size: 18px;
+            color: white;
+            background-color: #007BFF;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:active {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Voice-Controlled LED Controller</h1>
+        <button onclick="startListening()">Start Listening</button>
+        <p id="status">Status: Idle</p>
+    </div>
+
+    <script>
+        const keywords = {
+            "all in": "allin",
+            "allen": "allin",
+            "olive": "allin",
+            "all": "allin",
+            "clock":"timer"
+        };
+
+        const apiUrl = "/start";
+
+        function startListening() {
+            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = "en-US";
+            recognition.interimResults = false;
+
+            document.getElementById("status").textContent = "Status: Listening...";
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript.toLowerCase();
+                console.log("Recognized: ", transcript);
+
+                const matchedKeyword = Object.keys(keywords).find(keyword => transcript.includes(keyword));
+
+                if (matchedKeyword) {
+                    triggerEffect(keywords[matchedKeyword]);
+                } else {
+                    alert("Keyword not recognized. Please try again.");
+                }
+
+                document.getElementById("status").textContent = "Status: Idle";
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech recognition error: ", event.error);
+                alert("Error with speech recognition: " + event.error);
+                document.getElementById("status").textContent = "Status: Idle";
+            };
+
+            recognition.start();
+        }
+
+        function triggerEffect(effect) {
+            fetch(apiUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ effect })
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("Failed to trigger effect");
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    alert(`Effect triggered: ${data.message}`);
+                })
+                .catch(error => {
+                    console.error("Error triggering effect: ", error);
+                    alert("Failed to trigger effect. See console for details.");
+                });
+        }
+    </script>
+</body>
+
+</html>
