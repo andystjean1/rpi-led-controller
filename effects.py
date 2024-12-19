@@ -235,6 +235,64 @@ def clock2(strip):
         strip.show()
         time.sleep(1)
 
+def clock3(strip):
+    "clock2 with fill"
+    num_pixels = strip.numPixels()
+    timezone = pytz.timezone('America/New_York')
+
+    while True and not stop_flag:
+
+        ct = dt.now(timezone).time()
+        hour = ct.hour
+        minute = ct.minute
+        second = ct.second
+
+        print("first", hour, minute, second, sep=":")
+        
+        hour_limit = hour % 12
+        second_limit = second // 2
+
+        print("second", hour_limit, minute, second_limit, sep=":")
+
+        hour_start_idx = hour * 10
+        min_start = minute * 2
+        sec_start = second * 2
+
+        # blue for PM, red for AM
+        hour_color = colors.BLUE if hour > 12 else colors.RED
+        minute_color = colors.GREEN
+        second_color = colors.PURPLE
+
+        #clear board
+        for i in range(num_pixels):
+                strip.setPixelColor(i, colors.OFF)
+    
+        #set the hour pixels
+        for i in range(hour_start_idx):
+            strip.setPixelColor(i, hour_color)
+
+       
+        # set the minute dependent on the hour
+        if(min_start < hour_start_idx):
+            print("dots")
+            strip.setPixelColor(min_start, minute_color)
+            strip.setPixelColor(min_start+1, minute_color)
+        
+        else:
+            print("fill")
+            for i in range(hour_start_idx, min_start):
+                strip.setPixelColor(i, minute_color)
+
+        # set the second depenedent on the minute
+        if(sec_start < min_start):
+            print("dots")
+            strip.setPixelColor(sec_start, second_color)
+            strip.setPixelColor(sec_start+1, second_color)
+        
+        else:
+            print("fill")
+            for i in range(min_start, sec_start):
+                strip.setPixelColor(i, second_color)
 
 def clock4(strip):
     "clock2 with fill"
@@ -291,7 +349,6 @@ def clock4(strip):
             
         strip.show()
         time.sleep(1)
-
 
 
 
