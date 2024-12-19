@@ -146,7 +146,7 @@ def clock(strip):
         hour = ct.hour
         minute = ct.minute
         secound = ct.second
-
+        print(hour, minute, second, sep=":")
         start_idx = 6
         offset = 2
         hour_offset = 12
@@ -161,11 +161,15 @@ def clock(strip):
         hour_limit = hour % 12
         second_limit = second % 30
 
+        print(hour_limit, minute, second_limit, sep=":")
+
         #set hour pixels
         for i in range(hour_limit):
             strip.setPixelColor(start_idx + i, hour_color)
         
+
         start_idx += (offset + hour_offset)
+        print(start_idx)
 
         #set minute pixels
         for i in range(minute):
@@ -173,6 +177,7 @@ def clock(strip):
 
         #set second pixels
         start_idx += (minute_offset + offset)
+        print(start_idx)
         for i in range(second_limit):
             strip.setPixelColor(start_idx + i, second_color)
 
