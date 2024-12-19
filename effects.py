@@ -2,6 +2,7 @@
 import rpi_ws281x
 import colors
 import time
+from datetime import datetime as dt
 
 import asyncio
 
@@ -136,5 +137,48 @@ def bouncing_window(strip, window_size=5, iterations=10, wait_ms=10):
             # Reverse direction at edges
             if position == 0 or position == num_pixels - window_size:
                 direction *= -1
+
+def clock(strip):
+    num_pixels = strip.numPixels()
+
+    while True and not stop_flag:
+        ct = dt.now().time()
+        hour = ct.hour
+        minute = ct.minute
+        secound = ct.second
+
+        start_idx = 6
+        offset = 2
+        hour_offset = 12
+        minute_offset = 60
+        second=offset = 30
+
+        # blue for PM, red for AM
+        hour_color = colors.BLUE if hour > 12 else colors.RED
+        minute_color = colors.GREEN
+        second_color = colors.PURPLE
+
+        hour_limit = hour % 12
+        second_limit = second % 30
+
+        #set hour pixels
+        for i in range(hour_limit):
+            strip.setPixelColor(start_idx + i, hour_color)
+        
+        start_idx += (offset + hour_offset)
+
+        #set minute pixels
+        for i in range(minute):
+            strip.setPixelColor(start_idx + i, minute_color)
+
+        #set second pixels
+        start_idx += (minute_offset + offset)
+        for i in range(second_limit):
+            strip.setPixelColor(start_idx + i, second_color)
+
+        time.sleep(1)
+
+
+
 
 

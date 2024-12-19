@@ -43,7 +43,8 @@ jobs = {
     "bounce": lambda: effects.bouncing_window(strip),
     "off": lambda: effects.fill_strip(strip, colors.OFF),
     "text_effect": lambda text: embeddings.display_text_as_lights(text),
-    "race": lambda: light_race.race(strip)
+    "race": lambda: light_race.race(strip),
+    "clock": lambda: effects.clock(strip)
 }
 
 def stop_current_job():
