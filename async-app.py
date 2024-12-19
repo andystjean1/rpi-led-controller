@@ -50,7 +50,9 @@ jobs = {
     "clock4": lambda: effects.clock4(strip),
     "clock5": lambda: effects.clock5(strip),
     "clock6": lambda: effects.clock6(strip),
-    "rollout": lambda: effects.roll_out(strip)
+    "rollout": lambda: effects.roll_out(strip),
+    "allin": lambda: effect.allin(strip),
+    "clock": lambda: effect.allin(strip)
 }
 
 def stop_current_job():
@@ -81,6 +83,10 @@ def effect_runner(job_name, *args):
     
 
 @app.route("/", methods=["GET"])
+def index():
+    return render_template('async.html')
+
+@app.route("/poker-voice-control", methods=["GET"])
 def index():
     return render_template('async.html')
 

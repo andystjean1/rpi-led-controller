@@ -464,3 +464,12 @@ async def clock6(strip):
 
         # Wait for the next update
         await asyncio.sleep(1 - delay * rollout_steps if rollout_steps > 0 else 1)
+
+def allin(strip):
+    for i in range(strip.numPixels()):
+        strip.setPixelColor(i, colors.red_hue(i))
+    strip.show()
+
+def clock(strip):
+    for i in range(strip.numPixels()):
+        strip.setPixelColor(i, colors.blue_hue(i*2))
