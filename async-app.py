@@ -49,6 +49,7 @@ jobs = {
     "clock3": lambda: effects.clock3(strip),
     "clock4": lambda: effects.clock4(strip),
     "clock5": lambda: effects.clock5(strip),
+    "clock6": lambda: effects.clock6(strip),
     "rollout": lambda: effects.roll_out(strip)
 }
 

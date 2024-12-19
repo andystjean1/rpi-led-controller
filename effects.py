@@ -372,7 +372,7 @@ def clock5(strip):
     num_pixels = strip.numPixels()
     timezone = pytz.timezone('America/New_York')
 
-    while True and not stop_flag:
+    while not stop_flag:
         ct = dt.now(timezone).time()
         hour = ct.hour
         minute = ct.minute
@@ -405,3 +405,62 @@ def clock5(strip):
         
             
         strip.show()
+
+
+async def clock6(strip):
+    """Clock with rollout animation for seconds."""
+    global stop_flag
+    num_pixels = strip.numPixels()
+    timezone = pytz.timezone("America/New_York")
+
+    while not stop_flag:
+        ct = dt.now(timezone).time()
+        hour = ct.hour
+        minute = ct.minute
+        second = ct.second
+
+        # Calculate LED positions
+        hour_start = (hour % 12) * (num_pixels // 12)  # Hour markers
+        min_start = (minute * num_pixels) // 60       # Minute markers
+        sec_start = (second * num_pixels) // 60       # Second markers
+
+        # Colors
+        hour_color = colors.BLUE if hour >= 12 else colors.RED
+        minute_color = colors.GREEN
+        second_color = colors.PURPLE
+        marker_color = colors.YELLOW
+
+        # Clear the strip
+        for i in range(num_pixels):
+            strip.setPixelColor(i, colors.OFF)
+
+        # Add markers every 5 minutes
+        for i in range(0, num_pixels, num_pixels // 12):
+            strip.setPixelColor(i, marker_color)
+
+        # Set hour and minute markers
+        strip.setPixelColor(hour_start, hour_color)
+        strip.setPixelColor(min_start, minute_color)
+
+        # Rollout animation for seconds
+        rollout_steps = sec_start  # Number of steps for the animation
+        delay = 1.0 / rollout_steps if rollout_steps > 0 else 1.0  # Calculate step delay
+
+        for j in range(rollout_steps):
+            if stop_flag:
+                break
+            strip.setPixelColor(j, second_color)
+            strip.show()
+            await asyncio.sleep(delay)
+
+        # Turn off the second's rollout once complete
+        for j in range(rollout_steps):
+            if stop_flag:
+                break
+            strip.setPixelColor(j, colors.OFF)
+
+        # Show the strip
+        strip.show()
+
+        # Wait for the next update
+        await asyncio.sleep(1 - delay * rollout_steps if rollout_steps > 0 else 1)
