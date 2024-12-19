@@ -269,7 +269,7 @@ def clock4(strip):
     
         
         #draw marker for every five minuts
-        marker_max = (min_start // 5) * 5
+        marker_max = (min_start // 10) * 10
         for i in range(marker_max):
             if(i >= marker_max):
                 for j in range(i, min_start):
