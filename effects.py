@@ -266,20 +266,25 @@ def clock3(strip):
         #clear board
         for i in range(num_pixels):
                 strip.setPixelColor(i, colors.OFF)
-
-        # set the seconds
-
-        for i in range(sec_start):
-            strip.setPixelColor(i, second_color)
+    
+        #set the hour pixels
+        for i in range(hour_start_idx):
+            strip.setPixelColor(i, hour_color)
 
         #set the minutes
         for i in range(min_start):
             strip.setPixelColor(i, minute_color)
 
-        #set the hour pixels
-        for i in range(hour_start_idx):
-            strip.setPixelColor(i, hour_color)
-            
+        # set the seconds
+        for i in range(sec_start):
+
+            if(i < min_start):
+                strip.setPixelColor(i, second_color)
+                strip.setPixelColor(i+1, second_color)
+            else:
+                for j in range(min_start, i):
+                    strip.setPixelColor(j, second_color)
+
         strip.show()
         time.sleep(1)
 
