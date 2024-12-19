@@ -311,12 +311,12 @@ def clock4(strip):
 
         print("first", hour, minute, second, sep=":")
 
-        hour_start = hour * 10
+        hour_start = (hour % 12) * 10
         min_start = minute * 2
         sec_start = second * 2
 
         # blue for PM, red for AM
-        hour_color = colors.BLUE if hour > 12 else colors.RED
+        hour_color = colors.BLUE if hour >= 12 else colors.RED
         minute_color = colors.GREEN
         second_color = colors.PURPLE
 
