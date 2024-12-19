@@ -334,7 +334,7 @@ def clock4(strip):
             strip.setPixelColor(i, minute_color)
 
         hour_max = (hour_start // 10) * 10
-        hour_markers = [hour_max - i for i in range(1, hour_start, 10) if i != minute_max-9]
+        hour_markers = [hour_max - i for i in range(1, hour_start, 10)]
         for i in hour_markers:
             strip.setPixelColor(i, hour_color)
 
