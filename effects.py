@@ -159,7 +159,7 @@ def clock(strip):
         print("first", hour, minute, second, sep=":")
         
         hour_limit = hour % 12
-        second_limit = second // 30
+        second_limit = second // 2
 
         print("second", hour_limit, minute, second_limit, sep=":")
 
