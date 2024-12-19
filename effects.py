@@ -261,7 +261,6 @@ def clock4(strip):
         # blue for PM, red for AM
         hour_color = colors.BLUE if hour > 12 else colors.RED
         minute_color = colors.GREEN
-        minute_marker
         second_color = colors.PURPLE
 
         #clear board
