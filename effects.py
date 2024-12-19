@@ -207,7 +207,7 @@ def clock2(strip):
 
         print("first", hour, minute, second, sep=":")
 
-        hour_start_idx = hour * 10
+        hour_start = hour * 10
         min_start = minute * 2
         sec_start = second * 2
 
@@ -221,8 +221,8 @@ def clock2(strip):
                 strip.setPixelColor(i, colors.OFF)
 
         #set the hour pixels
-        for i in range(10):
-            strip.setPixelColor(hour_start_idx + i, hour_color)
+        for i in range(hour_start - 10, hour_start):
+            strip.setPixelColor(i, hour_color)
 
         #set the minutes
         strip.setPixelColor(min_start, minute_color)
@@ -293,9 +293,13 @@ def clock3(strip):
             print("fill")
             for i in range(min_start, sec_start):
                 strip.setPixelColor(i, second_color)
+        
+        strip.show()
+        time.sleep(1)
+
 
 def clock4(strip):
-    "clock2 with fill"
+    "clock with markers"
     num_pixels = strip.numPixels()
     timezone = pytz.timezone('America/New_York')
 
@@ -306,13 +310,8 @@ def clock4(strip):
         second = ct.second
 
         print("first", hour, minute, second, sep=":")
-        
-        hour_limit = hour % 12
-        second_limit = second // 2
 
-        print("second", hour_limit, minute, second_limit, sep=":")
-
-        hour_start_idx = hour * 10
+        hour_start = hour * 10
         min_start = minute * 2
         sec_start = second * 2
 
@@ -325,7 +324,6 @@ def clock4(strip):
         for i in range(num_pixels):
                 strip.setPixelColor(i, colors.OFF)
     
-        
         #draw marker for every five minuts
         marker_max = (min_start // 10) * 10
         for i in range(marker_max):
@@ -340,8 +338,8 @@ def clock4(strip):
                 strip.setPixelColor(i, colors.OFF)
                 
         #set the hour pixels
-        for i in range(hour_start_idx):
-            strip.setPixelColor(i, hour_color if (i != 0 and i % 10 == 0) else colors.OFF)
+        for i in range(hour_start):
+            strip.setPixelColor(i, hour_color if (i != 0 and i+1 % 10 == 0) else colors.OFF)
 
         # draw the seconds  
         strip.setPixelColor(sec_start, second_color)
