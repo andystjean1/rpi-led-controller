@@ -334,7 +334,7 @@ def clock4(strip):
                 break
             elif(i+1 % 10 == 0):
                 strip.setPixelColor(i, minute_color)
-                strip.setPixelColor(i+1, minute_color)
+
             else:
                 strip.setPixelColor(i, colors.OFF)
                 
