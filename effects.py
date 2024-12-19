@@ -271,11 +271,11 @@ def clock4(strip):
         #draw marker for every five minuts
         marker_max = (min_start // 5) * 5
         for i in range(marker_max):
-            if(i > marker_max):
+            if(i >= marker_max):
                 for j in range(i, min_start):
                     strip.setPixelColor(j, minute_color)
                 break
-            elif(i % 5 == 0):
+            elif(i % 10 == 0):
                 strip.setPixelColor(i, minute_color)
                 strip.setPixelColor(i+1, minute_color)
             else:
