@@ -141,33 +141,37 @@ def bouncing_window(strip, window_size=5, iterations=10, wait_ms=10):
 def clock(strip):
     num_pixels = strip.numPixels()
 
+    
+    offset = 2
+    hour_offset = 12
+    minute_offset = 60
+    second=offset = 30
+
+
     while True and not stop_flag:
+        start_idx = 6
+
         ct = dt.now().time()
         hour = ct.hour
         minute = ct.minute
         second = ct.second
-        print(hour, minute, second, sep=":")
-        start_idx = 6
-        offset = 2
-        hour_offset = 12
-        minute_offset = 60
-        second=offset = 30
+
+        print("first", hour, minute, second, sep=":")
+        
+        hour_limit = hour % 12
+        second_limit = second % 30
+
+        print("second", hour_limit, minute, second_limit, sep=":")
 
         # blue for PM, red for AM
         hour_color = colors.BLUE if hour > 12 else colors.RED
         minute_color = colors.GREEN
         second_color = colors.PURPLE
 
-        hour_limit = hour % 12
-        second_limit = second % 30
-
-        print(hour_limit, minute, second_limit, sep=":")
-
         #set hour pixels
         for i in range(hour_limit):
             strip.setPixelColor(start_idx + i, hour_color)
         
-
         start_idx += (offset + hour_offset)
         print(start_idx)
 
