@@ -88,7 +88,7 @@ def index():
 
 @app.route("/poker-voice-control", methods=["GET"])
 def voice_control():
-    return render_template('async.html')
+    return render_template('voice-control.html')
 
 @app.route("/start", methods=["POST"])
 def start_effect():
