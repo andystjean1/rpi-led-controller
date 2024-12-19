@@ -349,5 +349,22 @@ def clock4(strip):
         time.sleep(1)
 
 
+def roll_out(strip):
+    num_pixels = strip.numPixels()
 
+    for i in range(1, num_pixels):
 
+        #light up the strip
+        for j in (range(i-1)):
+            strip.setPixelColor(j, colors.ORANGE)
+
+        print("rolling out")
+        #loop through and rollout
+        for j in (range(1, i)):
+            strip.setPixelColor(j, colors.OFF)
+            strip.setPixelColor(j - 1, colors.ORANGE)
+            strip.show()
+            time.sleep(0.01)
+
+        print("rolled out")
+        time.sleep(0.5)

@@ -47,7 +47,8 @@ jobs = {
     "clock": lambda: effects.clock(strip),
     "clock2": lambda: effects.clock2(strip),
     "clock3": lambda: effects.clock3(strip),
-    "clock4": lambda: effects.clock4(strip)
+    "clock4": lambda: effects.clock4(strip),
+    "rollout": lambda: effects.roll_out(strip)
 }
 
 def stop_current_job():
