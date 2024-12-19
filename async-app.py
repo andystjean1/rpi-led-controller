@@ -45,7 +45,8 @@ jobs = {
     "text_effect": lambda text: embeddings.display_text_as_lights(text),
     "race": lambda: light_race.race(strip),
     "clock": lambda: effects.clock(strip),
-    "clock2": lambda: effects.clock2(strip)
+    "clock2": lambda: effects.clock2(strip),
+    "clock3": lambda: effects.clock3(strip)
 }
 
 def stop_current_job():
