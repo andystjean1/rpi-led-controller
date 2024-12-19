@@ -46,7 +46,8 @@ jobs = {
     "race": lambda: light_race.race(strip),
     "clock": lambda: effects.clock(strip),
     "clock2": lambda: effects.clock2(strip),
-    "clock3": lambda: effects.clock3(strip)
+    "clock3": lambda: effects.clock3(strip),
+    "clock4": lambda: effects.clock4(strip)
 }
 
 def stop_current_job():
