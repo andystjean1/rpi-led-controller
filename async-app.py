@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request
 from threading import Lock, Thread
 from rpi_ws281x import PixelStrip, Color
 import time
@@ -9,7 +9,6 @@ import embeddings
 
 # Flask app initialization
 app = Flask(__name__)
-app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False # to prevent an error
 
 # LED strip configuration
 LED_COUNT = 120
@@ -42,6 +41,14 @@ jobs = {
     "race": lambda: light_race.race(strip)
 }
 
+def stop_current_job():
+    global current_effect, current_thread
+    if current_thread and current_thread.is_alive():
+        # Assuming each job checks periodically for a termination condition
+        with effect_lock:
+            current_effect = None
+            current_thread = None
+
 def effect_runner(job_name, *args):
     global current_effect, current_thread
 
@@ -53,21 +60,16 @@ def effect_runner(job_name, *args):
                 current_effect = None
                 current_thread = None
 
+    stop_current_job()
+
     with effect_lock:
         current_effect = job_name
         current_thread = Thread(target=run_job)
         current_thread.start()
 
-@app.route("/", methods=["GET"])
-def render_home():
-    return render_template('async.html')
-
 @app.route("/start", methods=["POST"])
 def start_effect():
     global current_effect, current_thread
-
-    if effect_lock.locked():
-        return jsonify({"error": "Another effect is already running"}), 400
 
     data = request.json
     job_name = data.get("effect")
@@ -76,6 +78,7 @@ def start_effect():
 
     args = data.get("args", [])
     effect_runner(job_name, *args)
+    print(f"started {job_name}")
     return jsonify({"message": f"Effect '{job_name}' started"}), 200
 
 @app.route("/stop", methods=["POST"])
@@ -83,12 +86,10 @@ def stop_effect():
     global current_effect, current_thread
 
     if not effect_lock.locked():
+        print("no effect running")
         return jsonify({"error": "No effect is currently running"}), 400
 
-    with effect_lock:
-        current_effect = None
-        current_thread = None
-
+    stop_current_job()
     return jsonify({"message": "Effect stopped"}), 200
 
 @app.route("/status", methods=["GET"])

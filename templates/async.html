@@ -52,7 +52,7 @@
         <button onclick="triggerEndpoint('/start', { effect: 'warm_wheel' })">Warm Wheel Effect</button>
         <button onclick="triggerEndpoint('/start', { effect: 'lime_green' })">Lime Green</button>
         <button onclick="triggerEndpoint('/start', { effect: 'race' })">Start Race</button>
-        <button class="off" onclick="triggerEndpoint('/stop')">Turn Off</button>
+        <button class="off" onclick="triggerEndpoint('/start', { effect: 'off' })">Turn Off</button>
         <h2>Text Effect</h2>
         <input id="textInput" type="text" placeholder="Enter text for LED effect" />
         <button onclick="sendTextEffect()">Send Text Effect</button>
@@ -74,7 +74,6 @@
                 const response = await fetch(endpoint, options);
                 const result = await response.json();
                 console.log(result);
-                alert(result.message || 'Action completed successfully!');
             } catch (error) {
                 alert('Error: Unable to trigger the endpoint');
                 console.error(error);
