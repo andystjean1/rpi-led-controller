@@ -152,7 +152,7 @@ def clock(strip):
     while True and not stop_flag:
         start_idx = 6
 
-        ct = dt.now().time(timezone)
+        ct = dt.now(timezone).time()
         hour = ct.hour
         minute = ct.minute
         second = ct.second
