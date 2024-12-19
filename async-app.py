@@ -1,14 +1,15 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, jsonify, request, render_template
+from threading import Lock, Thread
 from rpi_ws281x import PixelStrip, Color
-import threading
-
-# custom mods
-import light_race
-import colors
+import time
 import effects
+import colors
+import light_race
 import embeddings
 
+# Flask app initialization
 app = Flask(__name__)
+app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False # to prevent an error
 
 # LED strip configuration
 LED_COUNT = 120
@@ -23,65 +24,79 @@ LED_CHANNEL = 0
 strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
 strip.begin()
 
-# Global variables for effect management
+# Lock and job management
+effect_lock = Lock()
 current_effect = None
-effect_thread = None
-effect_lock = threading.Lock()
-running = False
+current_thread = None
 
-def effect_runner(effect_function, *args, **kwargs):
-    """Runs the given effect in a loop until stopped."""
-    global running
-    running = True
-    while running:
-        effect_function(*args, **kwargs)
+# Effect runner
+jobs = {
+    "wheel": lambda: effects.color_wheel(strip, wait_ms=20, iterations=1),
+    "warm_wheel": lambda: effects.warm_wheel(strip),
+    "lime_green": lambda: effects.fill_strip(strip, colors.LIME_GREEN),
+    "flash": lambda: effects.flash(strip),
+    "leapfrog": lambda: effects.leap_frog(strip),
+    "bounce": lambda: effects.bouncing_window(strip),
+    "off": lambda: effects.fill_strip(strip, colors.OFF),
+    "text_effect": lambda text: embeddings.display_text_as_lights(text),
+    "race": lambda: light_race.race(strip)
+}
 
-def start_effect(effect_function, *args, **kwargs):
-    """Starts a new effect, stopping the current one if necessary."""
-    global current_effect, effect_thread, running
-    print(effect_lock)
+def effect_runner(job_name, *args):
+    global current_effect, current_thread
+
+    def run_job():
+        try:
+            jobs[job_name](*args)
+        finally:
+            with effect_lock:
+                current_effect = None
+                current_thread = None
+
     with effect_lock:
-        # Stop any currently running effect
-        if effect_thread and effect_thread.is_alive():
-            running = False
-            effect_thread.join()
+        current_effect = job_name
+        current_thread = Thread(target=run_job)
+        current_thread.start()
 
-        # Start the new effect in a separate thread
-        running = True
-        current_effect = effect_function
-        effect_thread = threading.Thread(target=effect_runner, args=(effect_function,) + args, kwargs=kwargs)
-        effect_thread.start()
+@app.route("/", methods=["GET"])
+def render_home():
+    return render_template('async.html')
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+@app.route("/start", methods=["POST"])
+def start_effect():
+    global current_effect, current_thread
 
-@app.route('/wheel')
-def wheel_route():
-    """Trigger the wheel effect."""
-    start_effect(effects.color_wheel, strip, wait_ms=20, iterations=None)  # Continuous loop
-    return "success color wheel"
+    if effect_lock.locked():
+        return jsonify({"error": "Another effect is already running"}), 400
 
-@app.route('/lime-green')
-def lime_green():
-    start_effect(effects.fill_strip, strip, colors.LIME_GREEN)
-    return "success lime green"
+    data = request.json
+    job_name = data.get("effect")
+    if job_name not in jobs:
+        return jsonify({"error": f"Effect '{job_name}' does not exist"}), 404
 
-@app.route('/start-race')
-def start_race():
-    start_effect(light_race.race, strip)
-    return "race started"
+    args = data.get("args", [])
+    effect_runner(job_name, *args)
+    return jsonify({"message": f"Effect '{job_name}' started"}), 200
 
-@app.route('/off')
-def turn_off():
-    """Turn off all effects."""
-    global running
+@app.route("/stop", methods=["POST"])
+def stop_effect():
+    global current_effect, current_thread
+
+    if not effect_lock.locked():
+        return jsonify({"error": "No effect is currently running"}), 400
+
     with effect_lock:
-        running = False
-        if effect_thread and effect_thread.is_alive():
-            effect_thread.join()
-        effects.fill_strip(strip, colors.OFF)
-    return "off"
+        current_effect = None
+        current_thread = None
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
+    return jsonify({"message": "Effect stopped"}), 200
+
+@app.route("/status", methods=["GET"])
+def status():
+    if not effect_lock.locked():
+        return jsonify({"status": "idle"}), 200
+
+    return jsonify({"status": "running", "effect": current_effect}), 200
+
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0")
