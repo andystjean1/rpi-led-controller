@@ -145,7 +145,7 @@ def clock(strip):
         ct = dt.now().time()
         hour = ct.hour
         minute = ct.minute
-        secound = ct.second
+        second = ct.second
         print(hour, minute, second, sep=":")
         start_idx = 6
         offset = 2
