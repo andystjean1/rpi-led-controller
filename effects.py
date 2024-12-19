@@ -176,6 +176,7 @@ def clock(strip):
         for i in range(second_limit):
             strip.setPixelColor(start_idx + i, second_color)
 
+        strip.show()
         time.sleep(1)
 
 
