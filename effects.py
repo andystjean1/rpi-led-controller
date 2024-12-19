@@ -390,7 +390,7 @@ def clock5(strip):
         second_color = colors.PURPLE
 
         for i in (range(num_pixels)):
-            strip.setPixelColor(i, colors.off)
+            strip.setPixelColor(i, colors.OFF)
 
         #light up the strip
         for j in (range(sec_start-1)):
