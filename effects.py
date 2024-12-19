@@ -145,7 +145,7 @@ def clock(strip):
     offset = 2
     hour_offset = 12
     minute_offset = 60
-    second=offset = 30
+    second_offset = 30
 
 
     while True and not stop_flag:
@@ -159,7 +159,7 @@ def clock(strip):
         print("first", hour, minute, second, sep=":")
         
         hour_limit = hour % 12
-        second_limit = second % 30
+        second_limit = second // 30
 
         print("second", hour_limit, minute, second_limit, sep=":")
 
