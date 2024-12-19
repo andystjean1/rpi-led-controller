@@ -389,25 +389,19 @@ def clock5(strip):
         minute_color = colors.GREEN
         second_color = colors.PURPLE
 
-        #clear board
-        for i in range(num_pixels):
-                strip.setPixelColor(i, colors.OFF)
-
         for i in range(1, sec_start):
 
             #light up the strip
             for j in (range(i-1)):
                 strip.setPixelColor(j, second_color)
 
-            print("rolling out")
             #loop through and rollout
             for j in (range(1, i)):
                 strip.setPixelColor(j, colors.OFF)
                 strip.setPixelColor(j - 1, second_color)
                 strip.show()
-                time.sleep(0.1000 / i)
+                time.sleep(0.1000 / i) #this should always make the rollout take one second
 
             print("rolled out")
             
         strip.show()
-        time.sleep(1)
