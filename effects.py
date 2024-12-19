@@ -330,7 +330,7 @@ def clock4(strip):
             if(i >= marker_max):
                 print("drawing loops", i, min_start, sep=":")
                 for j in range(i, min_start):
-                    strip.setPixelColor(j, minute_color)
+                    strip.setPixelColor(j, minute_color if j % 2 else colors.off)
                 break
             elif(i % 10 == 0):
                 strip.setPixelColor(i, minute_color)
@@ -340,7 +340,7 @@ def clock4(strip):
                 
         #set the hour pixels
         for i in range(hour_start):
-            strip.setPixelColor(i, hour_color if (i != 0 and i+1 % 10 == 0) else colors.OFF)
+            strip.setPixelColor(i, hour_color if (i != 0 and (i+1) % 10 == 0) else colors.OFF)
 
         # draw the seconds  
         strip.setPixelColor(sec_start, second_color)
