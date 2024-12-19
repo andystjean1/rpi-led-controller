@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LED ASYNC Controller</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            padding: 20px;
+        }
+
+        button {
+            width: 90%;
+            max-width: 300px;
+            padding: 15px;
+            margin: 10px auto;
+            font-size: 18px;
+            color: white;
+            background-color: #007BFF;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:active {
+            background-color: #0056b3;
+        }
+
+        button.off {
+            background-color: #FF0000;
+        }
+
+        button.off:active {
+            background-color: #cc0000;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>LED Controller</h1>
+        <button onclick="triggerEndpoint('/start', { effect: 'wheel' })">Color Wheel Effect</button>
+        <button onclick="triggerEndpoint('/start', { effect: 'warm_wheel' })">Warm Wheel Effect</button>
+        <button onclick="triggerEndpoint('/start', { effect: 'lime_green' })">Lime Green</button>
+        <button onclick="triggerEndpoint('/start', { effect: 'race' })">Start Race</button>
+        <button class="off" onclick="triggerEndpoint('/stop')">Turn Off</button>
+        <h2>Text Effect</h2>
+        <input id="textInput" type="text" placeholder="Enter text for LED effect" />
+        <button onclick="sendTextEffect()">Send Text Effect</button>
+        <button onclick="triggerEndpoint('/start', { effect: 'flash' })">Flash</button>
+        <button onclick="triggerEndpoint('/start', { effect: 'leapfrog' })">Leap Frog</button>
+        <button onclick="triggerEndpoint('/start', { effect: 'bounce' })">Bounce</button>
+    </div>
+
+    <script>
+        async function triggerEndpoint(endpoint, data = null) {
+            try {
+                const options = {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                };
+                const response = await fetch(endpoint, options);
+                const result = await response.json();
+                console.log(result);
+                alert(result.message || 'Action completed successfully!');
+            } catch (error) {
+                alert('Error: Unable to trigger the endpoint');
+                console.error(error);
+            }
+        }
+
+        function sendTextEffect() {
+            const text = document.getElementById("textInput").value;
+            if (!text) {
+                alert("Please enter some text.");
+                return;
+            }
+
+            triggerEndpoint("/start", { effect: "text_effect", args: [text] });
+        }
+    </script>
+</body>
+
+</html>
