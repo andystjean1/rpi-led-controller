@@ -19,7 +19,7 @@ def fill_strip(strip, color):
     # Function to run the wheel effect
 def color_wheel(strip, wait_ms=20, iterations=1):
     """Perform a color wheel effect over the strip."""
-    while True and stop_flag:
+    while True and not stop_flag:
         for j in range(256):  # 0-255 for color wheel
             if stop_flag:
                 break
@@ -61,7 +61,11 @@ def leap_frog(strip, window_size=5, iterations=3):
     num_pixels = strip.numPixels()
 
     for _ in range(iterations):
+        if stop_flag:
+            break
         for i in range(num_pixels):
+            if stop_flag:
+                break
             # Clear the LED just before the current window
             clear_index = (i - 1) % num_pixels
             strip.setPixelColor(clear_index, colors.OFF)
@@ -79,7 +83,11 @@ def warm_wheel(strip, window_size=5, iterations=3):
     num_pixels = strip.numPixels()
 
     for _ in range(iterations):
+        if stop_flag:
+            break
         for i in range(num_pixels):
+            if stop_flag:
+                break
             # Clear the LED just before the current window
             clear_index = (i - 1) % num_pixels
             strip.setPixelColor(clear_index, colors.OFF)
@@ -101,7 +109,11 @@ def bouncing_window(strip, window_size=5, iterations=10, wait_ms=10):
     position = 0
 
     for _ in range(iterations):
+        if stop_flag:
+            break
         for _ in range(num_pixels - window_size + 1):
+            if stop_flag:
+                break
             # Turn off all LEDs
             for i in range(num_pixels):
                 strip.setPixelColor(i, colors.OFF)
