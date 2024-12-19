@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
 from threading import Lock, Thread
 from rpi_ws281x import PixelStrip, Color
 import time
@@ -66,6 +66,10 @@ def effect_runner(job_name, *args):
         current_effect = job_name
         current_thread = Thread(target=run_job)
         current_thread.start()
+
+@app.route("/", methods=["GET"])
+def index():
+    return render_template('async.html')
 
 @app.route("/start", methods=["POST"])
 def start_effect():
