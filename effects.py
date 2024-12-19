@@ -401,7 +401,7 @@ def clock5(strip):
             strip.setPixelColor(j, colors.OFF)
             strip.setPixelColor(j - 1, second_color)
             strip.show()
-            time.sleep(0.1000 / second) #this should always make the rollout take one second
+            time.sleep(1 / second) #this should always make the rollout take one second
         
             
         strip.show()
