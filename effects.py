@@ -271,12 +271,18 @@ def clock3(strip):
         for i in range(hour_start_idx):
             strip.setPixelColor(i, hour_color)
 
-        #set the minutes
-        for i in range(min_start):
-            strip.setPixelColor(i, minute_color)
+        #draw the minutes dependent on hour
+        if(min_start <= hour_start_idx):
+            print("minute dots")
+            strip.setPixelColor(min_start, minute_color)
+            strip.setPixelColor(min_start+1, minute_color)
+        else:
+            print("minute fill")
+            for i in range(hour_start_idx, min_start):
+                strip.setPixelColor(i, minute_color)
 
-
-        if(sec_start < min_start):
+        # draw the seconds dependent on minute 
+        if(sec_start <= min_start):
             print("dots")
             strip.setPixelColor(sec_start, second_color)
             strip.setPixelColor(sec_start+1, second_color)
