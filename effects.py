@@ -207,7 +207,7 @@ def clock2(strip):
 
         print("first", hour, minute, second, sep=":")
 
-        hour_start = hour * 10
+        hour_start = (hour % 12) * 10
         min_start = minute * 2
         sec_start = second * 2
 
@@ -365,6 +365,49 @@ def roll_out(strip):
             strip.setPixelColor(j - 1, colors.ORANGE)
             strip.show()
             time.sleep(0.01)
-
         print("rolled out")
-        time.sleep(0.5)
+
+def clock5(strip):
+    "clock with markers"
+    num_pixels = strip.numPixels()
+    timezone = pytz.timezone('America/New_York')
+
+    while True and not stop_flag:
+        ct = dt.now(timezone).time()
+        hour = ct.hour
+        minute = ct.minute
+        second = ct.second
+
+        print("first", hour, minute, second, sep=":")
+
+        hour_start = (hour % 12) * 10
+        min_start = minute * 2
+        sec_start = second * 2
+
+        # blue for PM, red for AM
+        hour_color = colors.BLUE if hour >= 12 else colors.RED
+        minute_color = colors.GREEN
+        second_color = colors.PURPLE
+
+        #clear board
+        for i in range(num_pixels):
+                strip.setPixelColor(i, colors.OFF)
+
+        for i in range(1, sec_start):
+
+            #light up the strip
+            for j in (range(i-1)):
+                strip.setPixelColor(j, second_color)
+
+            print("rolling out")
+            #loop through and rollout
+            for j in (range(1, i)):
+                strip.setPixelColor(j, colors.OFF)
+                strip.setPixelColor(j - 1, second_color)
+                strip.show()
+                time.sleep(0.1000 / i)
+
+            print("rolled out")
+            
+        strip.show()
+        time.sleep(1)
