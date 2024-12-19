@@ -3,6 +3,14 @@ import rpi_ws281x
 import colors
 import time
 
+import asyncio
+
+stop_flag = False
+
+def set_stop_flag(value: bool):
+    global stop_flag
+    stop_flag = value
+
 def fill_strip(strip, color):
     for i in range(strip.numPixels()):
         strip.setPixelColor(i, color)
@@ -14,6 +22,9 @@ def color_wheel(strip, wait_ms=20, iterations=1):
     while True:
         for j in range(256):  # 0-255 for color wheel
             for i in range(strip.numPixels()):
+                if stop_flag:
+                    break
+
                 strip.setPixelColor(i, colors.wheel((i + j) & 255))
             strip.show()
             time.sleep(wait_ms / 1000.0)
@@ -33,6 +44,9 @@ def flash(strip):
     iterations = 20
     for i in range(iterations):
         for j in range(strip.numPixels()):
+            if stop_flag:
+                break
+            
             condition = (i % 2) == (j % 2)
             color = colors.wheel(i) if condition else colors.OFF
             strip.setPixelColor(j, color)

@@ -9,6 +9,7 @@ import embeddings
 
 # Flask app initialization
 app = Flask(__name__)
+app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
 # LED strip configuration
 LED_COUNT = 120
@@ -43,9 +44,14 @@ jobs = {
 
 def stop_current_job():
     global current_effect, current_thread
+    print("stopping the job")
     if current_thread and current_thread.is_alive():
-        # Assuming each job checks periodically for a termination condition
+        effects.set_stop_flag(True)  # Signal the job to stop
+        current_thread.join()  # Wait for the thread to finish
+        effects.set_stop_flag(False)  # Reset the flag
+
         with effect_lock:
+            
             current_effect = None
             current_thread = None
 
@@ -53,12 +59,7 @@ def effect_runner(job_name, *args):
     global current_effect, current_thread
 
     def run_job():
-        try:
-            jobs[job_name](*args)
-        finally:
-            with effect_lock:
-                current_effect = None
-                current_thread = None
+        asyncio.run(jobs[job_name](*args))
 
     stop_current_job()
 
