@@ -169,6 +169,10 @@ def clock(strip):
         minute_color = colors.GREEN
         second_color = colors.PURPLE
 
+        #clear board
+        for i in range(num_pixels):
+                strip.setPixelColor(i, colors.OFF)
+
         #set hour pixels
         for i in range(hour_limit):
             strip.setPixelColor(start_idx + i, hour_color)
