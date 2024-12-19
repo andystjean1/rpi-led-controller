@@ -333,7 +333,7 @@ def clock4(strip):
                 for j in range(i, min_start):
                     strip.setPixelColor(j, minute_color if not (j % 2) else colors.OFF)
                 break
-            elif(i+1 % 10 == 0):
+            elif((i+1) % 10 == 0):
                 print(f"marker {i}")
                 strip.setPixelColor(i, minute_color)
 
