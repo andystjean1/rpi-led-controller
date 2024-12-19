@@ -3,6 +3,7 @@ import rpi_ws281x
 import colors
 import time
 from datetime import datetime as dt
+import pytz
 
 import asyncio
 
@@ -140,7 +141,7 @@ def bouncing_window(strip, window_size=5, iterations=10, wait_ms=10):
 
 def clock(strip):
     num_pixels = strip.numPixels()
-
+    timezone = pytz.timezone('America/New_York')
     
     offset = 2
     hour_offset = 12
@@ -151,7 +152,7 @@ def clock(strip):
     while True and not stop_flag:
         start_idx = 6
 
-        ct = dt.now().time()
+        ct = dt.now().time(timezone)
         hour = ct.hour
         minute = ct.minute
         second = ct.second
