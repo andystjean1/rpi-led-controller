@@ -279,9 +279,11 @@ def clock3(strip):
         for i in range(sec_start):
 
             if(i < min_start):
+                print("dots")
                 strip.setPixelColor(i, second_color)
                 strip.setPixelColor(i+1, second_color)
             else:
+                print("full")
                 for j in range(min_start, i):
                     strip.setPixelColor(j, second_color)
 
