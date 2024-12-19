@@ -19,8 +19,10 @@ def fill_strip(strip, color):
     # Function to run the wheel effect
 def color_wheel(strip, wait_ms=20, iterations=1):
     """Perform a color wheel effect over the strip."""
-    while True:
+    while True and stop_flag:
         for j in range(256):  # 0-255 for color wheel
+            if stop_flag:
+                break
             for i in range(strip.numPixels()):
                 if stop_flag:
                     break
@@ -43,10 +45,12 @@ def display_bits(strip, bits):
 def flash(strip):
     iterations = 20
     for i in range(iterations):
+        if stop_flag:
+            break
         for j in range(strip.numPixels()):
             if stop_flag:
                 break
-            
+
             condition = (i % 2) == (j % 2)
             color = colors.wheel(i) if condition else colors.OFF
             strip.setPixelColor(j, color)
@@ -91,7 +95,7 @@ def warm_wheel(strip, window_size=5, iterations=3):
             strip.show()
             time.sleep(0.1)
 
-def bouncing_window(strip, window_size=5, iterations=10, wait_ms=50):
+def bouncing_window(strip, window_size=5, iterations=10, wait_ms=10):
     num_pixels = strip.numPixels()
     direction = 1  # 1 for forward, -1 for backward
     position = 0

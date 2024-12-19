@@ -71,6 +71,7 @@ def effect_runner(job_name, *args):
         current_effect = job_name
         current_thread = Thread(target=run_job)
         current_thread.start()
+    
 
 @app.route("/", methods=["GET"])
 def index():
