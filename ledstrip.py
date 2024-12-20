@@ -20,7 +20,7 @@ class LEDStripController:
         self.strip = strip
         self.numPixels = strip.numPixels()
         self.colors = [colors.RED, colors.GREEN, colors.BLUE]
-        self.delay = 500 #milliseconds
+        self.delay = 500 // 1000 #milliseconds
 
     def set_colors(self, color_list):
         self.colors = color_list
