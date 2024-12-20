@@ -23,14 +23,15 @@ class LEDStripController:
 
     def set_colors(self, color_list):
         self.colors = color_list
-
-        #display the new colors
-        for i in range(self.numPixels):
-            self.set_pixel(i, color_list[i%3])
-        self.show()
+    
+    def get_colors(self):
+        return self.colors
     
     def set_delay(self, delay):
         self.delay = delay
+    
+    def get_delay(self):
+        return self.delay
 
     def off(self):
         for i in range(self.strip.numPixels()):
