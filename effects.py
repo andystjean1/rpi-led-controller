@@ -44,7 +44,7 @@ def display_bits(strip, bits):
         strip.setPixelColor(i, color)
     strip.show()
 
-def flash(strip):
+def flash(strip, colors, delay):
     iterations = 20
     for i in range(iterations):
         if stop_flag:
@@ -54,10 +54,10 @@ def flash(strip):
                 break
 
             condition = (i % 2) == (j % 2)
-            color = colors.wheel(i) if condition else colors.OFF
+            color = colors[0] if condition else colors[1]
             strip.setPixelColor(j, color)
         strip.show()
-        time.sleep(0.5)
+        time.sleep(delay)
 
 def leap_frog(strip, window_size=5, iterations=3):
     num_pixels = strip.numPixels()

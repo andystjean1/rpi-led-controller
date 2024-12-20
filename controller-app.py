@@ -28,10 +28,10 @@ jobs = {
     "wheel": lambda: effects.color_wheel(strip, wait_ms=20, iterations=1),
     "warm_wheel": lambda: effects.warm_wheel(strip),
     "lime_green": lambda: led_controller.fill_color(colors.LIME_GREEN),
-    "flash": lambda: effects.flash(strip),
+    "flash": led_controller.flash(),
     "leapfrog": lambda: effects.leap_frog(strip),
     "bounce": lambda: effects.bouncing_window(strip),
-    "off": lambda: led_controller.off(),
+    "off": led_controller.off(),
     "text_effect": lambda text: embeddings.display_text_as_lights(text),
     "race": lambda: light_race.race(strip),
     "clock": lambda: effects.clock(strip),
@@ -41,8 +41,8 @@ jobs = {
     "clock5": lambda: effects.clock5(strip),
     "clock6": lambda: effects.clock6(strip),
     "rollout": lambda: effects.roll_out(strip),
-    "allin": lambda: effect.allin(strip),
-    "clock": lambda: effect.allin(strip)
+    "allin": lambda: effects.allin(strip),
+    "clock_timer": lambda: effects.allin(strip)
 }
 
 def stop_current_job():
