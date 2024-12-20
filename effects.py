@@ -218,7 +218,7 @@ def clock2(strip):
 
         #clear board
         for i in range(num_pixels):
-                strip.setPixelColor(i, colors.OFF)
+            strip.setPixelColor(i, colors.OFF)
 
         #set the hour pixels
         for i in range(hour_start - 10, hour_start):
@@ -473,6 +473,6 @@ def allin(strip):
         strip.setPixelColor(i, colors.red_hue(i))
     strip.show()
 
-def clock(strip):
+def clock_timer(strip):
     for i in range(strip.numPixels()):
         strip.setPixelColor(i, colors.blue_hue(i*2))

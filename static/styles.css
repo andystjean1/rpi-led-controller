@@ -1,33 +1,36 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Settings</title>
-    <link rel="stylesheet" href="/static/styles.css">
-</head>
-<body>
-    <h1>LED Strip Settings</h1>
-    <form id="settings-form" action="/update-settings" method="POST">
-        <label for="color1">Primary Color:</label>
-        <input type="color" id="color1" name="color1" value="#ffffff">
-        <br><br>
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+    background-color: #f0f0f0;
+}
 
-        <label for="color2">Secondary Color:</label>
-        <input type="color" id="color2" name="color2" value="#ff0000">
-        <br><br>
+.container {
+    padding: 20px;
+}
 
-        <label for="color3">Tertiary Color:</label>
-        <input type="color" id="color3" name="color3" value="#0000ff">
-        <br><br>
+button {
+    width: 90%;
+    max-width: 300px;
+    padding: 15px;
+    margin: 10px auto;
+    font-size: 18px;
+    color: white;
+    background-color: #007BFF;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
 
-        <label for="delay">Effect Delay (ms):</label>
-        <input type="number" id="delay" name="delay" value="20" min="1">
-        <br><br>
+button:active {
+    background-color: #0056b3;
+}
 
-        <button type="submit">Save Settings</button>
-    </form>
-    <br>
-    <button onclick="window.location.href='/'">Back to Controller</button>
-</body>
-</html>
+button.off {
+    background-color: #FF0000;
+}
+
+button.off:active {
+    background-color: #cc0000;
+}

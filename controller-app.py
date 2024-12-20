@@ -111,7 +111,27 @@ def update_settings():
     led_controller.set_colors(new_colors)
     led_controller.set_delay(delay)
 
-    return jsonify({"message": "Settings updated successfully"}), 200
+    return 200
+
+@app.route("/get-settings", methods=["GET"])
+def get_settings():
+    global led_controller
+
+    # Convert colors to hex format
+    def color_to_hex(color):
+        r = (color >> 16) & 0xFF
+        g = (color >> 8) & 0xFF
+        b = color & 0xFF
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    colors = [color_to_hex(color) for color in led_controller.get_colors()]
+    delay = led_controller.get_delay()
+
+    return jsonify({
+        "colors": colors,
+        "delay": delay
+    })
+
 
 # start an effect
 @app.route("/start", methods=["POST"])
