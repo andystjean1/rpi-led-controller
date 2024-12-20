@@ -32,7 +32,7 @@ class LEDStripController:
         self.delay = delay / 1000
     
     def get_delay(self):
-        return self.delay
+        return self.delay * 1000
 
     def off(self):
         for i in range(self.strip.numPixels()):
