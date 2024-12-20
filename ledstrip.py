@@ -12,7 +12,7 @@ LED_INVERT = False
 LED_CHANNEL = 0
 
 class LEDStripController:
-    def __init__(self, strip):
+    def __init__(self):
         # Initialize the LED strip
         strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
         strip.begin()
