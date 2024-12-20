@@ -51,11 +51,12 @@ def stop_current_job():
     print("stopping the job")
     if current_thread and current_thread.is_alive():
         effects.set_stop_flag(True)  # Signal the job to stop
+        clock_effects.set_stop_flag(True)
         current_thread.join()  # Wait for the thread to finish
         effects.set_stop_flag(False)  # Reset the flag
+        clock_effects.set_stop_flag(False)
 
         with effect_lock:
-            
             current_effect = None
             current_thread = None
 

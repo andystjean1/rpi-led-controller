@@ -7,6 +7,9 @@ import rpi_ws281x
 import colors
 
 stop_flag = False
+def set_stop_flag(value: bool):
+    global stop_flag
+    stop_flag = value
 
 def clock(strip):
     """clock 1 : theres some sections and offsets every 2 seconds, seconds updates"""
@@ -215,28 +218,6 @@ def clock4(strip):
         strip.show()
         time.sleep(1)
 
-def roll_out(strip):
-    num_pixels = strip.numPixels()
-
-    for i in range(1, num_pixels):
-        if stop_flag:
-            break
-
-        #light up the strip
-        for j in (range(i-1)):
-            strip.setPixelColor(j, colors.ORANGE)
-
-        print("rolling out")
-        #loop through and rollout
-        for j in (range(1, i)):
-            if stop_flag:
-                break
-
-            strip.setPixelColor(j, colors.OFF)
-            strip.setPixelColor(j - 1, colors.ORANGE)
-            strip.show()
-            time.sleep(0.01)
-        print("rolled out")
 
 def clock5(strip):
     "clock with markers"
