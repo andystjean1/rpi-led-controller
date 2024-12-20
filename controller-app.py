@@ -7,6 +7,7 @@ import asyncio
 from ledstrip import LEDStripController
 
 import effects
+import clock_effects
 import colors
 import light_race
 import embeddings
@@ -34,12 +35,12 @@ jobs = {
     "off": lambda: led_controller.off(),
     "text_effect": lambda text: embeddings.display_text_as_lights(text),
     "race": lambda: light_race.race(strip),
-    "clock": lambda: effects.clock(strip),
-    "clock2": lambda: effects.clock2(strip),
-    "clock3": lambda: effects.clock3(strip),
-    "clock4": lambda: effects.clock4(strip),
-    "clock5": lambda: effects.clock5(strip),
-    "clock6": lambda: effects.clock6(strip),
+    "clock": lambda: clock_effects.clock(strip),
+    "clock2": lambda: clock_effects.clock2(strip),
+    "clock3": lambda: clock_effects.clock3(strip),
+    "clock4": lambda: clock_effects.clock4(strip),
+    "clock5": lambda: clock_effects.clock5(strip),
+    "clock6": lambda: clock_effects.clock6(strip),
     "rollout": lambda: effects.roll_out(strip),
     "allin": lambda: effects.allin(strip),
     "clock_timer": lambda: effects.allin(strip)
