@@ -46,6 +46,7 @@ def display_bits(strip, bits):
 
 def flash(strip, colors, delay):
     iterations = 20
+    print(delay)
     for i in range(iterations):
         if stop_flag:
             break

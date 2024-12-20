@@ -29,7 +29,7 @@ class LEDStripController:
         return self.colors
     
     def set_delay(self, delay):
-        self.delay = delay
+        self.delay = delay // 1000
     
     def get_delay(self):
         return self.delay
