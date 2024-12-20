@@ -59,4 +59,4 @@ class LEDStripController:
     
     def flash(self):
         print("starting flash")
-        effects.flash(self.strip, self.colors, self.delay)
+        effects.flash(self)

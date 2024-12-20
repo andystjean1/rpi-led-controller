@@ -58,6 +58,19 @@ def flash(strip, color_list, delay):
         strip.show()
         time.sleep(delay)
 
+def flash(controller):
+    i = 0
+    while not stop_flag:
+        i+=1
+        for j in range(controller.numPixels):
+            if stop_flag:
+                break
+            condition = (i % 2) == (j % 2)
+            color = controller.color_list[0] if condition else controller.color_list[1]
+            controller.set_pixel(j, color)
+        controller.show
+        time.sleep(controller.delay)
+    
 def leap_frog(strip, window_size=5, iterations=3):
     num_pixels = strip.numPixels()
 
