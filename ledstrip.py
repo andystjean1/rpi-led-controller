@@ -56,11 +56,6 @@ class LEDStripController:
             if 0 <= index < self.strip.numPixels():
                 self.strip.setPixelColor(index, color)
         self.strip.show()
-
-    def preview(self):
-        for i in range(self.numPixels):
-            self.set_pixel(i, self.colors[i % 3])
-        self.show()
     
     def flash(self):
         print("starting flash")

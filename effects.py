@@ -44,18 +44,16 @@ def display_bits(strip, bits):
         strip.setPixelColor(i, color)
     strip.show()
 
-def flash(strip, colors, delay):
-    iterations = 20
-    print(delay)
-    for i in range(iterations):
-        if stop_flag:
-            break
+def flash(strip, color_list, delay):
+    i = 0
+    while not stop_flag:
+        i+=1
         for j in range(strip.numPixels()):
             if stop_flag:
                 break
 
             condition = (i % 2) == (j % 2)
-            color = colors[0] if condition else colors[1]
+            color = color_list[0] if condition else color_list[1]
             strip.setPixelColor(j, color)
         strip.show()
         time.sleep(delay)
@@ -148,7 +146,6 @@ def clock(strip):
     offset = 2
     hour_offset = 12
     minute_offset = 60
-    second_offset = 30
 
     while True and not stop_flag:
         start_idx = 6
