@@ -296,7 +296,6 @@ def clock3(strip):
         strip.show()
         time.sleep(1)
 
-
 def clock4(strip):
     "clock with markers"
     num_pixels = strip.numPixels()
@@ -348,11 +347,12 @@ def clock4(strip):
         strip.show()
         time.sleep(1)
 
-
 def roll_out(strip):
     num_pixels = strip.numPixels()
 
     for i in range(1, num_pixels):
+        if stop_flag:
+            break
 
         #light up the strip
         for j in (range(i-1)):
@@ -361,6 +361,9 @@ def roll_out(strip):
         print("rolling out")
         #loop through and rollout
         for j in (range(1, i)):
+            if stop_flag:
+                break
+
             strip.setPixelColor(j, colors.OFF)
             strip.setPixelColor(j - 1, colors.ORANGE)
             strip.show()
