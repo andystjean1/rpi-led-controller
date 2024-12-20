@@ -12,7 +12,6 @@ LED_BRIGHTNESS = 255
 LED_INVERT = False
 LED_CHANNEL = 0
 
-
 class LEDStripController:    
     def __init__(self):
         # Initialize the LED strip
@@ -64,5 +63,5 @@ class LEDStripController:
         self.show()
     
     def flash(self):
+        print("starting flash")
         effects.flash(self.strip, self.colors, self.delay)
-
