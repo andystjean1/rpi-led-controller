@@ -57,26 +57,6 @@ def flash(controller):
             controller.set_pixel(j, color)
         controller.show()
         time.sleep(controller.delay)
-    
-# def leap_frog(strip, window_size=5, iterations=3):
-#     num_pixels = strip.numPixels()
-
-#     while not stop_flag:
-#         for i in range(num_pixels):
-#             if stop_flag:
-#                 break
-#             # Clear the LED just before the current window
-#             clear_index = (i - 1) % num_pixels
-#             strip.setPixelColor(clear_index, colors.OFF)
-
-#             # Set the current window of lights
-#             for j in range(window_size):
-#                 pixel_index = (i + j) % num_pixels
-#                 strip.setPixelColor(pixel_index, colors.RED if j % 2 == 0 else colors.PURPLE)
-
-#             # Show the updated strip
-#             strip.show()
-#             time.sleep(0.2)
 
 def leap_frog(controller):
     num_pixels = controller.numPixels
