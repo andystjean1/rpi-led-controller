@@ -114,20 +114,20 @@ def update_settings():
     return 200
 
 
-# Convert colors to hex format
-def color_to_hex(color):
-    r = (color >> 16) & 0xFF
-    g = (color >> 8) & 0xFF
-    b = color & 0xFF
-    return f"#{r:02x}{g:02x}{b:02x}"
-
 @app.route("/get-settings", methods=["GET"])
 def get_settings():
-    colors_list = [color_to_hex(color) for color in led_controller.get_colors()]
+    global led_controller
+    # Convert colors to hex format
+    def color_to_hex(color):
+        r = (color >> 16) & 0xFF
+        g = (color >> 8) & 0xFF
+        b = color & 0xFF
+        return f"#{r:02x}{g:02x}{b:02x}"
+        
+    colors = [color_to_hex(color) for color in led_controller.get_colors()]
     delay = led_controller.get_delay()
-
     return jsonify({
-        "colors": colors_list,
+        "colors": colors,
         "delay": delay
     })
 
