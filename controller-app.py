@@ -28,8 +28,8 @@ jobs = {
     "wheel": lambda: effects.color_wheel(strip, wait_ms=20, iterations=1),
     "warm_wheel": lambda: effects.warm_wheel(strip),
     "lime_green": lambda: led_controller.fill_color(colors.LIME_GREEN),
-    "flash": lambda: led_controller.flash(),
-    "leapfrog": lambda: effects.leap_frog(strip),
+    "flash": lambda: effects.flash(led_controller),
+    "leapfrog": lambda: effects.leap_frog(led_controller),
     "bounce": lambda: effects.bouncing_window(strip),
     "off": lambda: led_controller.off(),
     "text_effect": lambda text: embeddings.display_text_as_lights(text),
@@ -123,7 +123,7 @@ def get_settings():
         g = (color >> 8) & 0xFF
         b = color & 0xFF
         return f"#{r:02x}{g:02x}{b:02x}"
-        
+
     colors = [color_to_hex(color) for color in led_controller.get_colors()]
     delay = led_controller.get_delay()
     return jsonify({
