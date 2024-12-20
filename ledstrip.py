@@ -18,10 +18,18 @@ class LEDStripController:
         strip.begin()
         self.strip = strip
         self.numPixels = strip.numPixels()
+        self.colors = [colors.OFF, colors.OFF, colors.OFF]
+        self.delay = 20 #milliseconds
 
-    def clear(self):
+    def set_colors(self, color_list):
+        self.colors = color_list
+    
+    def set_delay(self, delay):
+        self.delay = delay
+
+    def off(self):
         for i in range(self.strip.numPixels()):
-            self.strip.setPixelColor(i, Color(0, 0, 0))
+            self.strip.setPixelColor(i, colors.OFF)
         self.strip.show()
 
     def set_pixel(self, index, color):
@@ -41,7 +49,3 @@ class LEDStripController:
             if 0 <= index < self.strip.numPixels():
                 self.strip.setPixelColor(index, color)
         self.strip.show()
-    
-    def off(self):
-        for i in rane(self.numPixels):
-            self.strip.setPixelColor(i, colors.OFF)

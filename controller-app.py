@@ -80,6 +80,40 @@ def index():
 def voice_control():
     return render_template('voice-control.html')
 
+@app.route("/settings", methods=["GET"])
+def settings():
+    return render_template('settings.html')
+
+@app.route("/update-settings", methods=["POST"])
+def update_settings():
+    global led_controller
+
+    data = request.form
+    color1_hex = data.get("color1", "#ffffff")
+    color2_hex = data.get("color2", "#ff0000")
+    color3_hex = data.get("color3", "#0000ff")
+    delay = int(data.get("delay", 20))
+
+    # Convert hex colors to rpi_ws281x Colors
+    def hex_to_color(hex_color):
+        r = int(hex_color[1:3], 16)
+        g = int(hex_color[3:5], 16)
+        b = int(hex_color[5:7], 16)
+        return Color(r, g, b)
+
+    new_colors = [
+        hex_to_color(color1_hex),
+        hex_to_color(color2_hex),
+        hex_to_color(color3_hex)
+    ]
+
+    # Update LEDStripController settings
+    led_controller.set_colors(new_colors)
+    led_controller.set_delay(delay)
+
+    return jsonify({"message": "Settings updated successfully"}), 200
+
+# start an effect
 @app.route("/start", methods=["POST"])
 def start_effect():
     global current_effect, current_thread
