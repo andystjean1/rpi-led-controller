@@ -1,5 +1,5 @@
 # led_strip_controller.py
-from rpi_ws281x import Color
+from rpi_ws281x import Color, PixelStrip
 import colors
 
 # LED strip configuration
