@@ -19,19 +19,20 @@ def fill_strip(strip, color):
     strip.show()
 
     # Function to run the wheel effect
-def color_wheel(strip, wait_ms=20, iterations=1):
+
+def color_wheel(controller):
     """Perform a color wheel effect over the strip."""
-    while True and not stop_flag:
+    while not stop_flag:
         for j in range(256):  # 0-255 for color wheel
             if stop_flag:
                 break
-            for i in range(strip.numPixels()):
+            for i in range(controller.numpPixels):
                 if stop_flag:
                     break
 
-                strip.setPixelColor(i, colors.wheel((i + j) & 255))
-            strip.show()
-            time.sleep(wait_ms / 1000.0)
+                controller.set_pixel(i, colors.wheel((i + j) & 255))
+            controller.show()
+            time.sleep(controller.delay)
 
 def display_bits(strip, bits):
     for i in range(len(bits)):
@@ -43,20 +44,6 @@ def display_bits(strip, bits):
 
         strip.setPixelColor(i, color)
     strip.show()
-
-# def flash(strip, color_list, delay):
-#     i = 0
-#     while not stop_flag:
-#         i+=1
-#         for j in range(strip.numPixels()):
-#             if stop_flag:
-#                 break
-
-#             condition = (i % 2) == (j % 2)
-#             color = color_list[0] if condition else color_list[1]
-#             strip.setPixelColor(j, color)
-#         strip.show()
-#         time.sleep(delay)
 
 def flash(controller):
     i = 0
@@ -71,27 +58,48 @@ def flash(controller):
         controller.show()
         time.sleep(controller.delay)
     
-def leap_frog(strip, window_size=5, iterations=3):
-    num_pixels = strip.numPixels()
+# def leap_frog(strip, window_size=5, iterations=3):
+#     num_pixels = strip.numPixels()
 
-    for _ in range(iterations):
-        if stop_flag:
-            break
+#     while not stop_flag:
+#         for i in range(num_pixels):
+#             if stop_flag:
+#                 break
+#             # Clear the LED just before the current window
+#             clear_index = (i - 1) % num_pixels
+#             strip.setPixelColor(clear_index, colors.OFF)
+
+#             # Set the current window of lights
+#             for j in range(window_size):
+#                 pixel_index = (i + j) % num_pixels
+#                 strip.setPixelColor(pixel_index, colors.RED if j % 2 == 0 else colors.PURPLE)
+
+#             # Show the updated strip
+#             strip.show()
+#             time.sleep(0.2)
+
+def leap_frog(controller):
+    num_pixels = controller.numPixels
+    num_colors = len(controller.color_list)
+    window_size = 5
+
+    while not stop_flag:
         for i in range(num_pixels):
             if stop_flag:
                 break
             # Clear the LED just before the current window
             clear_index = (i - 1) % num_pixels
-            strip.setPixelColor(clear_index, colors.OFF)
+            controller.set_pixel(clear_index, colors.OFF)
 
             # Set the current window of lights
             for j in range(window_size):
                 pixel_index = (i + j) % num_pixels
-                strip.setPixelColor(pixel_index, colors.RED if j % 2 == 0 else colors.PURPLE)
+                color_index = pixel_index % num_colors
+                controller.set_pixel(pixel_index, controller.color_list[color_index])
 
             # Show the updated strip
-            strip.show()
-            time.sleep(0.2)
+            controller.show()
+            time.sleep(controller.delay)
 
 def warm_wheel(strip, window_size=5, iterations=3):
     num_pixels = strip.numPixels()
