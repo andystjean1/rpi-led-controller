@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LED ASYNC Controller</title>
     <link rel="stylesheet" href="/static/styles.css">
-    <link rel="script" href="/static/index.js">
+    <script type="text/javascript" src="static/index.js"></script>
 </head>
 
 <body>
@@ -28,36 +28,7 @@
         <button onclick="window.location.href='/poker-voice-controller'">Poker Bot</button>
         <button onclick="window.location.href='/settings'">Settings</button>
     </div>
-
-    <script>
-        async function triggerEndpoint(endpoint, data = null) {
-            try {
-                const options = {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(data)
-                };
-                const response = await fetch(endpoint, options);
-                const result = await response.json();
-                console.log(result);
-            } catch (error) {
-                alert('Error: Unable to trigger the endpoint');
-                console.error(error);
-            }
-        }
-
-        function sendTextEffect() {
-            const text = document.getElementById("textInput").value;
-            if (!text) {
-                alert("Please enter some text.");
-                return;
-            }
-
-            triggerEndpoint("/start", { effect: "text_effect", args: [text] });
-        }
-    </script>
+        
 </body>
 
 </html>
