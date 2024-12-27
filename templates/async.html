@@ -5,44 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LED ASYNC Controller</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 0;
-            padding: 0;
-            background-color: #f0f0f0;
-        }
-
-        .container {
-            padding: 20px;
-        }
-
-        button {
-            width: 90%;
-            max-width: 300px;
-            padding: 15px;
-            margin: 10px auto;
-            font-size: 18px;
-            color: white;
-            background-color: #007BFF;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        button:active {
-            background-color: #0056b3;
-        }
-
-        button.off {
-            background-color: #FF0000;
-        }
-
-        button.off:active {
-            background-color: #cc0000;
-        }
-    </style>
+    <link rel="stylesheet" href="/static/styles.css">
 </head>
 
 <body>
@@ -60,12 +23,7 @@
         <button onclick="triggerEndpoint('/start', { effect: 'leapfrog' })">Leap Frog</button>
         <button onclick="triggerEndpoint('/start', { effect: 'bounce' })">Bounce</button>
         <button onclick="triggerEndpoint('/start', { effect: 'rollout' })">Rollout</button>
-        <button onclick="triggerEndpoint('/start', {effect: 'clock'})">Clock</button>
-        <button onclick="triggerEndpoint('/start', {effect: 'clock2'})">Clock 2</button>
-        <button onclick="triggerEndpoint('/start', {effect: 'clock3'})">Clock 3</button>
-        <button onclick="triggerEndpoint('/start', {effect: 'clock4'})">Clock 4</button>
-        <button onclick="triggerEndpoint('/start', {effect: 'clock5'})">Clock 5</button>
-        <button onclick="triggerEndpoint('/start', {effect: 'clock6'})">Clock 6</button>
+        
         <button onclick="window.location.href='/poker-voice-controller'">Poker Bot</button>
         <button onclick="window.location.href='/settings'">Settings</button>
     </div>

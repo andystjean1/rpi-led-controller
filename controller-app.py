@@ -26,7 +26,7 @@ current_thread = None
 
 # Effect runner
 jobs = {
-    "wheel": lambda: effects.color_wheel(strip, wait_ms=20, iterations=1),
+    "wheel": lambda: effects.color_wheel(led_controller),
     "warm_wheel": lambda: effects.warm_wheel(strip),
     "lime_green": lambda: led_controller.fill_color(colors.LIME_GREEN),
     "flash": lambda: effects.flash(led_controller),
@@ -78,6 +78,10 @@ def effect_runner(job_name, *args):
 def index():
     return render_template('async.html')
 
+@app.route("/clocks", methods=["GET"])
+def clocks_page():
+    return render_template('clcoks.html')
+
 @app.route("/poker-voice-control", methods=["GET"])
 def voice_control():
     return render_template('voice-control.html')
@@ -113,8 +117,7 @@ def update_settings():
     led_controller.set_colors(new_colors)
     led_controller.set_delay(delay)
 
-    return 200
-
+    return jsonify({"success"}), 200
 
 @app.route("/get-settings", methods=["GET"])
 def get_settings():

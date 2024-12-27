@@ -1,7 +1,7 @@
-# led_strip_controller.py
+"""contains ledcontroller class"""
 from rpi_ws281x import Color, PixelStrip
 import colors
-import effects
+
 
 # LED strip configuration
 LED_COUNT = 120
@@ -12,7 +12,9 @@ LED_BRIGHTNESS = 255
 LED_INVERT = False
 LED_CHANNEL = 0
 
-class LEDStripController:    
+class LEDStripController: 
+    """Class for Led Controller"""
+
     def __init__(self):
         # Initialize the LED strip
         strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
@@ -56,7 +58,3 @@ class LEDStripController:
             if 0 <= index < self.strip.numPixels():
                 self.strip.setPixelColor(index, color)
         self.strip.show()
-    
-    def flash(self):
-        print("starting flash")
-        effects.flash(self)
