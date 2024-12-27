@@ -80,7 +80,7 @@ def index():
 
 @app.route("/clocks", methods=["GET"])
 def clocks_page():
-    return render_template('clcoks.html')
+    return render_template('clocks.html')
 
 @app.route("/poker-voice-control", methods=["GET"])
 def voice_control():
