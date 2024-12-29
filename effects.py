@@ -79,7 +79,7 @@ def display_bits(strip, bits):
     strip.show()
 
 def roll_out(controller):
-    num_pixels = controller.num_colors
+    num_pixels = controller.num_pixels
 
     for i in range(1, num_pixels):
         if stop_flag:
@@ -102,7 +102,7 @@ def roll_out(controller):
         print("rolled out")
 
 def warm_wheel(controller):
-    num_pixels = controller.num_pixels
+    num_pixels = controller.numPixels
     window_size = 5
 
     while not stop_flag:
@@ -127,7 +127,7 @@ def bouncing_window(controller):
     direction = 1  # 1 for forward, -1 for backward
     position = 0
     window_size = 5
-
+    print(num_pixels)
     while not stop_flag:
         for _ in range(num_pixels - window_size + 1):
             if stop_flag:
