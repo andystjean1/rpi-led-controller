@@ -42,7 +42,15 @@ class LEDStripController:
         self.strip.show()
 
     def set_pixel(self, index, color):
+        """set pixel based on the color passed through"""
         if 0 <= index < self.strip.numPixels():
+            self.strip.setPixelColor(index, color)
+    
+    def set_pixel_color_list(self, index):
+        """sets the pixel based on the color list colors"""
+        if 0 <= index < self.strip.numPixels():
+            color_idx = index % len(self.color_list)
+            color = self.color_list[color_idx]
             self.strip.setPixelColor(index, color)
 
     def show(self):

@@ -48,7 +48,6 @@ def flash(controller):
 
 def leap_frog(controller):
     num_pixels = controller.numPixels
-    num_colors = len(controller.color_list)
     window_size = 5
 
     while not stop_flag:
@@ -62,8 +61,7 @@ def leap_frog(controller):
             # Set the current window of lights
             for j in range(window_size):
                 pixel_index = (i + j) % num_pixels
-                color_index = pixel_index % num_colors
-                controller.set_pixel(pixel_index, controller.color_list[color_index])
+                controller.set_pixel_color_list(pixel_index)
 
             # Show the updated strip
             controller.show()
@@ -80,8 +78,8 @@ def display_bits(strip, bits):
         strip.setPixelColor(i, color)
     strip.show()
 
-def roll_out(strip):
-    num_pixels = strip.numPixels()
+def roll_out(controller):
+    num_pixels = controller.num_colors
 
     for i in range(1, num_pixels):
         if stop_flag:
@@ -89,7 +87,7 @@ def roll_out(strip):
 
         #light up the strip
         for j in (range(i-1)):
-            strip.setPixelColor(j, colors.ORANGE)
+            controller.set_pixel(j, controller.color_list[0])
 
         print("rolling out")
         #loop through and rollout
@@ -97,62 +95,56 @@ def roll_out(strip):
             if stop_flag:
                 break
 
-            strip.setPixelColor(j, colors.OFF)
-            strip.setPixelColor(j - 1, colors.ORANGE)
-            strip.show()
-            time.sleep(0.01)
+            controller.set_pixel(j, colors.OFF)
+            controller.set_pixel(j - 1, controller.color_list[0])
+            controller.show()
+            time.sleep(controller.delay)
         print("rolled out")
 
-def warm_wheel(strip, window_size=5, iterations=3):
-    num_pixels = strip.numPixels()
+def warm_wheel(controller):
+    num_pixels = controller.num_pixels
+    window_size = 5
 
-    for _ in range(iterations):
-        if stop_flag:
-            break
+    while not stop_flag:
         for i in range(num_pixels):
-            if stop_flag:
-                break
             # Clear the LED just before the current window
             clear_index = (i - 1) % num_pixels
-            strip.setPixelColor(clear_index, colors.OFF)
+            controller.set_pixel(clear_index, colors.OFF)
 
             # Set the current window of lights
             for j in range(window_size):
                 pixel_index = (i + j) % num_pixels
                 idx = (i+j) % num_pixels
                 color_idx = ((idx * 256 // num_pixels) % 256)
-                strip.setPixelColor(pixel_index, colors.warm_wheel(color_idx))
+                controller.set_pixel(pixel_index, colors.warm_wheel(color_idx))
 
             # Show the updated strip
-            strip.show()
-            time.sleep(0.1)
+            controller.show()
+            time.sleep(controller.delay)
 
-def bouncing_window(strip, window_size=5, iterations=10, wait_ms=10):
-    num_pixels = strip.numPixels()
+def bouncing_window(controller):
+    num_pixels = controller.numPixels
     direction = 1  # 1 for forward, -1 for backward
     position = 0
+    window_size = 5
 
-    for _ in range(iterations):
-        if stop_flag:
-            break
+    while not stop_flag:
         for _ in range(num_pixels - window_size + 1):
             if stop_flag:
                 break
             # Turn off all LEDs
             for i in range(num_pixels):
-                strip.setPixelColor(i, colors.OFF)
+                controller.set_pixel(i, colors.OFF)
 
             # Light up the window
             for j in range(window_size):
                 pixel_index = position + j
                 if pixel_index < num_pixels:
-                    strip.setPixelColor(
-                        pixel_index, colors.BLUE if j % 2 == 0 else colors.PURPLE
-                    )
+                    controller.set_pixel_color_list(pixel_index)
 
             # Show the strip
-            strip.show()
-            time.sleep(wait_ms / 1000.0)
+            controller.show()
+            time.sleep(controller.delay)
 
             # Update position
             position += direction
