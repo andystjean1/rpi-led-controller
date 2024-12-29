@@ -24,6 +24,7 @@ button, a.button {
 
 a.button {
     background-color: #007B00;
+    margin-top: 10px;
 }
 
 button {
