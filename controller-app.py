@@ -27,11 +27,11 @@ current_thread = None
 # Effect runner
 jobs = {
     "wheel": lambda: effects.color_wheel(led_controller),
-    "warm_wheel": lambda: effects.warm_wheel(strip),
+    "warm_wheel": lambda: effects.warm_wheel(led_controller),
     "lime_green": lambda: led_controller.fill_color(colors.LIME_GREEN),
     "flash": lambda: effects.flash(led_controller),
     "leapfrog": lambda: effects.leap_frog(led_controller),
-    "bounce": lambda: effects.bouncing_window(strip),
+    "bounce": lambda: effects.bouncing_window(led_controller),
     "off": lambda: led_controller.off(),
     "text_effect": lambda text: embeddings.display_text_as_lights(text),
     "race": lambda: light_race.race(strip),
@@ -41,7 +41,7 @@ jobs = {
     "clock4": lambda: clock_effects.clock4(strip),
     "clock5": lambda: clock_effects.clock5(strip),
     "clock6": lambda: clock_effects.clock6(strip),
-    "rollout": lambda: effects.roll_out(strip),
+    "rollout": lambda: effects.roll_out(led_controller),
     "allin": lambda: effects.allin(strip),
     "clock_timer": lambda: effects.allin(strip)
 }
