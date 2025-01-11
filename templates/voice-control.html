@@ -38,7 +38,6 @@
 <body>
     <div class="container">
         <h1>Voice-Controlled LED Controller</h1>
-        <button onclick="startListening()">Start Listening</button>
         <p id="status">Status: Idle</p>
     </div>
 
@@ -48,41 +47,43 @@
             "allen": "allin",
             "olive": "allin",
             "all": "allin",
-            "clock":"timer"
+            "clock": "timer"
         };
 
         const apiUrl = "/start";
 
-        function startListening() {
-            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-            recognition.lang = "en-US";
-            recognition.interimResults = false;
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = "en-US";
+        recognition.interimResults = false;
 
+        recognition.onstart = () => {
             document.getElementById("status").textContent = "Status: Listening...";
+        };
 
-            recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript.toLowerCase();
-                console.log("Recognized: ", transcript);
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript.toLowerCase();
+            console.log("Recognized: ", transcript);
 
-                const matchedKeyword = Object.keys(keywords).find(keyword => transcript.includes(keyword));
+            const matchedKeyword = Object.keys(keywords).find(keyword => transcript.includes(keyword));
 
-                if (matchedKeyword) {
-                    triggerEffect(keywords[matchedKeyword]);
-                } else {
-                    alert("Keyword not recognized. Please try again.");
-                }
+            if (matchedKeyword) {
+                triggerEffect(keywords[matchedKeyword]);
+            } else {
+                console.log("Keyword not recognized. Please try again.");
+            }
 
-                document.getElementById("status").textContent = "Status: Idle";
-            };
+            recognition.stop(); // Stop recognition to prevent multiple triggers
+        };
 
-            recognition.onerror = (event) => {
-                console.error("Speech recognition error: ", event.error);
-                alert("Error with speech recognition: " + event.error);
-                document.getElementById("status").textContent = "Status: Idle";
-            };
+        recognition.onerror = (event) => {
+            console.error("Speech recognition error: ", event.error);
+            document.getElementById("status").textContent = "Status: Error - Restarting...";
+            restartRecognition();
+        };
 
-            recognition.start();
-        }
+        recognition.onend = () => {
+            restartRecognition();
+        };
 
         function triggerEffect(effect) {
             fetch(apiUrl, {
@@ -92,20 +93,30 @@
                 },
                 body: JSON.stringify({ effect })
             })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error("Failed to trigger effect");
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    alert(`Effect triggered: ${data.message}`);
-                })
-                .catch(error => {
-                    console.error("Error triggering effect: ", error);
-                    alert("Failed to trigger effect. See console for details.");
-                });
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Failed to trigger effect");
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log(`Effect triggered: ${data.message}`);
+            })
+            .catch(error => {
+                console.error("Error triggering effect: ", error);
+            });
         }
+
+        function restartRecognition() {
+            setTimeout(() => {
+                recognition.start();
+            }, 500); // Slight delay to ensure smooth restarts
+        }
+
+        // Start listening immediately when the page loads
+        window.onload = () => {
+            recognition.start();
+        };
     </script>
 </body>
 
