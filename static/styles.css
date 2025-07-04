@@ -20,11 +20,13 @@ button, a.button {
     border: none;
     border-radius: 5px;
     cursor: pointer;
+    display: block;
 }
 
 a.button {
     background-color: #007B00;
     margin-top: 10px;
+    text-decoration: none;
 }
 
 button {
@@ -41,4 +43,59 @@ button.off {
 
 button.off:active {
     background-color: #cc0000;
+}
+
+/* New effects styling */
+.new-effects-section {
+    margin-top: 30px;
+    padding: 20px;
+    border-top: 2px solid #ddd;
+}
+
+.new-effects-section h2 {
+    color: #333;
+    margin-bottom: 20px;
+}
+
+/* Different colors for new effects to distinguish them */
+button[onclick*="pulse"] {
+    background-color: #FF6B35;
+}
+
+button[onclick*="wave"] {
+    background-color: #4ECDC4;
+}
+
+button[onclick*="sparkle"] {
+    background-color: #45B7D1;
+}
+
+button[onclick*="chase"] {
+    background-color: #F7DC6F;
+    color: #333;
+}
+
+button[onclick*="gradient_fade"] {
+    background-color: #BB8FCE;
+}
+
+/* Hover effects for new buttons */
+button[onclick*="pulse"]:hover {
+    background-color: #E55B2B;
+}
+
+button[onclick*="wave"]:hover {
+    background-color: #3DB3AA;
+}
+
+button[onclick*="sparkle"]:hover {
+    background-color: #3A9BC1;
+}
+
+button[onclick*="chase"]:hover {
+    background-color: #F4D03F;
+}
+
+button[onclick*="gradient_fade"]:hover {
+    background-color: #A569BD;
 }

@@ -43,7 +43,13 @@ jobs = {
     "clock6": lambda: clock_effects.clock6(strip),
     "rollout": lambda: effects.roll_out(led_controller),
     "allin": lambda: effects.allin(strip),
-    "clock_timer": lambda: effects.allin(strip)
+    "clock_timer": lambda: effects.allin(strip),
+    # New effects
+    "pulse": lambda: effects.pulse(led_controller),
+    "wave": lambda: effects.wave(led_controller),
+    "sparkle": lambda: effects.sparkle(led_controller),
+    "chase": lambda: effects.chase(led_controller),
+    "gradient_fade": lambda: effects.gradient_fade(led_controller)
 }
 
 def stop_current_job():
