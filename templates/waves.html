@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wave Effects Control</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        .nav-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .nav-btn {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 25px;
+            color: white;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        .preset-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .preset-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        .preset-card:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-5px);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        .preset-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.3em;
+        }
+        .preset-card p {
+            margin: 0;
+            opacity: 0.8;
+            font-size: 0.9em;
+        }
+        .color-preview {
+            height: 30px;
+            border-radius: 15px;
+            margin: 10px 0;
+            background: linear-gradient(to right, var(--colors));
+        }
+        .custom-config {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 30px;
+        }
+        .custom-config h2 {
+            margin-top: 0;
+            text-align: center;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .form-group label {
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group select {
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+        }
+        .form-group input[type="range"] {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .color-palette {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .color-input {
+            width: 50px;
+            height: 50px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+        }
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 25px;
+            color: white;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .btn-primary {
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+        }
+        .btn-secondary {
+            background: linear-gradient(45deg, #A8E6CF, #88D8A3);
+        }
+        .btn-danger {
+            background: linear-gradient(45deg, #FF8E8E, #FF6B6B);
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        .status {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+        .status.success {
+            background: rgba(76, 175, 80, 0.3);
+            border: 1px solid rgba(76, 175, 80, 0.5);
+        }
+        .status.error {
+            background: rgba(244, 67, 54, 0.3);
+            border: 1px solid rgba(244, 67, 54, 0.5);
+        }
+        .range-value {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌊 Wave Effects Control</h1>
+        
+        <div class="nav-buttons">
+            <a href="/" class="nav-btn">Home</a>
+            <a href="/settings" class="nav-btn">Settings</a>
+            <a href="/clocks" class="nav-btn">Clocks</a>
+        </div>
+
+        <div class="preset-grid" id="presetGrid">
+            <!-- Preset cards will be populated by JavaScript -->
+        </div>
+
+        <div class="custom-config">
+            <h2>🎛️ Custom Wave Configuration</h2>
+            <form id="customWaveForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="waveType">Wave Type:</label>
+                        <select id="waveType" name="wave_type">
+                            <option value="sine">Sine Wave</option>
+                            <option value="triangle">Triangle Wave</option>
+                            <option value="square">Square Wave</option>
+                            <option value="sawtooth">Sawtooth Wave</option>
+                            <option value="pulse">Pulse Wave</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="speed">Speed:</label>
+                        <input type="range" id="speed" name="speed" min="0.01" max="1" step="0.01" value="0.1">
+                        <div class="range-value" id="speedValue">0.1</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="amplitude">Amplitude:</label>
+                        <input type="range" id="amplitude" name="amplitude" min="0.1" max="2" step="0.1" value="1">
+                        <div class="range-value" id="amplitudeValue">1</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="frequency">Frequency:</label>
+                        <input type="range" id="frequency" name="frequency" min="0.1" max="5" step="0.1" value="1">
+                        <div class="range-value" id="frequencyValue">1</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="waveLength">Wave Length:</label>
+                        <input type="range" id="waveLength" name="wave_length" min="5" max="50" step="1" value="20">
+                        <div class="range-value" id="waveLengthValue">20</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="phaseShift">Phase Shift:</label>
+                        <input type="range" id="phaseShift" name="phase_shift" min="0" max="6.28" step="0.1" value="0">
+                        <div class="range-value" id="phaseShiftValue">0</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="direction">Direction:</label>
+                        <select id="direction" name="direction">
+                            <option value="1">Forward</option>
+                            <option value="-1">Backward</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Color Palette:</label>
+                    <div class="color-palette">
+                        <input type="color" class="color-input" id="color1" value="#ff0000">
+                        <input type="color" class="color-input" id="color2" value="#00ff00">
+                        <input type="color" class="color-input" id="color3" value="#0000ff">
+                        <input type="color" class="color-input" id="color4" value="#ffffff">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="colorShift" name="color_shift">
+                        <label for="colorShift">Color Shift</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="brightnessModulation" name="brightness_modulation" checked>
+                        <label for="brightnessModulation">Brightness Modulation</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="fadeEdges" name="fade_edges" checked>
+                        <label for="fadeEdges">Fade Edges</label>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="startCustomWave()">Start Custom Wave</button>
+            <button class="btn btn-secondary" onclick="getStatus()">Status</button>
+            <button class="btn btn-danger" onclick="stopEffect()">Stop</button>
+        </div>
+
+        <div class="status" id="statusMessage"></div>
+    </div>
+
+    <script>
+        let presets = {};
+
+        // Load presets on page load
+        window.addEventListener('load', function() {
+            loadPresets();
+            setupRangeListeners();
+        });
+
+        function loadPresets() {
+            fetch('/wave-presets')
+                .then(response => response.json())
+                .then(data => {
+                    presets = data;
+                    displayPresets();
+                })
+                .catch(error => {
+                    console.error('Error loading presets:', error);
+                    showStatus('Error loading presets', 'error');
+                });
+        }
+
+        function displayPresets() {
+            const grid = document.getElementById('presetGrid');
+            grid.innerHTML = '';
+            
+            Object.entries(presets).forEach(([key, preset]) => {
+                const card = document.createElement('div');
+                card.className = 'preset-card';
+                card.onclick = () => startPreset(key);
+                
+                let colorGradient = '';
+                if (preset.color_palette.includes('rainbow')) {
+                    colorGradient = 'linear-gradient(to right, #ff0000, #ff8000, #ffff00, #00ff00, #00ffff, #0000ff, #8000ff)';
+                } else {
+                    colorGradient = `linear-gradient(to right, ${preset.color_palette.join(', ')})`;
+                }
+                
+                card.innerHTML = `
+                    <h3>${preset.name}</h3>
+                    <p>${preset.description}</p>
+                    <div class="color-preview" style="background: ${colorGradient};"></div>
+                    <small>Type: ${preset.wave_type} | Speed: ${preset.speed} | Freq: ${preset.frequency}</small>
+                `;
+                
+                grid.appendChild(card);
+            });
+        }
+
+        function startPreset(presetKey) {
+            fetch('/start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    effect: presetKey
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    showStatus(`Started ${presets[presetKey].name}`, 'success');
+                } else {
+                    showStatus('Error starting effect', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showStatus('Error starting effect', 'error');
+            });
+        }
+
+        function startCustomWave() {
+            const form = document.getElementById('customWaveForm');
+            const formData = new FormData(form);
+            
+            const config = {
+                wave_type: formData.get('wave_type') || 'sine',
+                speed: parseFloat(document.getElementById('speed').value),
+                amplitude: parseFloat(document.getElementById('amplitude').value),
+                frequency: parseFloat(document.getElementById('frequency').value),
+                wave_length: parseInt(document.getElementById('waveLength').value),
+                phase_shift: parseFloat(document.getElementById('phaseShift').value),
+                direction: parseInt(document.getElementById('direction').value),
+                color_shift: document.getElementById('colorShift').checked,
+                brightness_modulation: document.getElementById('brightnessModulation').checked,
+                fade_edges: document.getElementById('fadeEdges').checked,
+                color_palette: [
+                    document.getElementById('color1').value,
+                    document.getElementById('color2').value,
+                    document.getElementById('color3').value,
+                    document.getElementById('color4').value
+                ]
+            };
+
+            fetch('/wave-config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(config)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    showStatus('Custom wave started!', 'success');
+                } else {
+                    showStatus('Error starting custom wave', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showStatus('Error starting custom wave', 'error');
+            });
+        }
+
+        function stopEffect() {
+            fetch('/stop', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    showStatus('Effect stopped', 'success');
+                } else {
+                    showStatus('Error stopping effect', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showStatus('Error stopping effect', 'error');
+            });
+        }
+
+        function getStatus() {
+            fetch('/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'idle') {
+                        showStatus('No effect running', 'success');
+                    } else {
+                        showStatus(`Running: ${data.effect}`, 'success');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showStatus('Error getting status', 'error');
+                });
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        function setupRangeListeners() {
+            const ranges = ['speed', 'amplitude', 'frequency', 'waveLength', 'phaseShift'];
+            ranges.forEach(id => {
+                const range = document.getElementById(id);
+                const valueDisplay = document.getElementById(id + 'Value');
+                range.addEventListener('input', function() {
+                    valueDisplay.textContent = this.value;
+                });
+            });
+        }
+    </script>
+</body>
+</html>
