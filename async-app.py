@@ -4,6 +4,7 @@ import logging
 from threading import Lock, Thread
 
 from flask import Flask, jsonify, render_template, request
+from rpi_ws281x import Color
 from rpi_ws281x import PixelStrip
 
 import clock_effects
@@ -81,6 +82,10 @@ strip = PixelStrip(
 )
 strip.begin()
 controller = StripControllerAdapter(strip)
+current_settings = {
+    "colors": [colors.RED, colors.GREEN, colors.BLUE],
+    "delay": 500,
+}
 
 # Lock and job management
 effect_lock = Lock()
@@ -106,6 +111,14 @@ jobs = {
     "rollout": lambda: effects.roll_out(controller),
     "allin": lambda: effects.allin(strip),
 }
+
+
+def apply_settings():
+    controller.set_colors(current_settings["colors"])
+    controller.set_delay(current_settings["delay"])
+
+
+apply_settings()
 
 
 def reset_stop_flags():
@@ -164,9 +177,59 @@ def effect_runner(job_name, *args):
 def index():
     return render_template('async.html')
 
+@app.route("/clocks", methods=["GET"])
+def clocks_page():
+    return render_template('clocks.html')
+
 @app.route("/poker-voice-control", methods=["GET"])
 def voice_control():
     return render_template('voice-control.html')
+
+@app.route("/settings", methods=["GET"])
+def settings_page():
+    return render_template('settings.html')
+
+@app.route("/update-settings", methods=["POST"])
+def update_settings():
+    global current_settings
+
+    data = request.form
+    color_hex_values = [
+        data.get("color1", "#ffffff"),
+        data.get("color2", "#ff0000"),
+        data.get("color3", "#0000ff"),
+    ]
+    delay_ms = int(data.get("delay", 500))
+
+    def hex_to_color(value: str):
+        value = value.lstrip('#')
+        r = int(value[0:2], 16)
+        g = int(value[2:4], 16)
+        b = int(value[4:6], 16)
+        return Color(r, g, b)
+
+    current_settings = {
+        "colors": [hex_to_color(value) for value in color_hex_values],
+        "delay": delay_ms,
+    }
+
+    apply_settings()
+
+    return jsonify({"message": "Settings saved"}), 200
+
+@app.route("/get-settings", methods=["GET"])
+def get_settings():
+    def color_to_hex(color_value):
+        r = (color_value >> 16) & 0xFF
+        g = (color_value >> 8) & 0xFF
+        b = color_value & 0xFF
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    response = {
+        "colors": [color_to_hex(value) for value in current_settings["colors"]],
+        "delay": current_settings["delay"],
+    }
+    return jsonify(response), 200
 
 @app.route("/start", methods=["POST"])
 def start_effect():
