@@ -148,3 +148,35 @@ def test_start_and_stop_blocking_job(async_app_module):
         async_app_module.jobs.pop("unit_block", None)
         async_app_module.reset_stop_flags()
 
+
+def test_clocks_route_renders(async_app_module):
+    client = async_app_module.app.test_client()
+    response = client.get("/clocks")
+
+    assert response.status_code == 200
+    assert b"Clock Controller" in response.data
+
+
+@pytest.mark.parametrize(
+    ("job_name", "clock_attr"),
+    [
+        ("clock", "clock"),
+        ("clock2", "clock2"),
+        ("clock3", "clock3"),
+        ("clock4", "clock4"),
+        ("clock5", "clock5"),
+        ("clock6", "clock6"),
+    ],
+)
+def test_clock_jobs_dispatch_to_clock_effects(async_app_module, monkeypatch, job_name, clock_attr):
+    call_event = threading.Event()
+
+    def stub(strip):
+        call_event.set()
+
+    monkeypatch.setattr(async_app_module.clock_effects, clock_attr, stub)
+
+    async_app_module.jobs[job_name]()
+
+    assert call_event.is_set()
+
