@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+</head>
+<body>
+    <h1>Quick API Test</h1>
+    <button onclick="testAPI()">Test Start Effect on Strip 1</button>
+    <button onclick="testStatus()">Test Status</button>
+    <div id="output"></div>
+
+    <script>
+        async function testAPI() {
+            console.log('Testing API...');
+            const data = { strip_id: 'strip1', effect: 'wheel' };
+
+            try {
+                const response = await fetch('/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                document.getElementById('output').innerHTML = '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+                console.log('Result:', result);
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('output').innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+            }
+        }
+
+        async function testStatus() {
+            console.log('Testing Status...');
+
+            try {
+                const response = await fetch('/status?strip_id=strip1');
+                const result = await response.json();
+                document.getElementById('output').innerHTML = '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+                console.log('Status:', result);
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('output').innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+            }
+        }
+    </script>
+</body>
+</html>

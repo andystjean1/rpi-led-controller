@@ -7,48 +7,119 @@
     <link rel="stylesheet" href="/static/styles.css">
     <style>
         .strip-section {
-            border: 2px solid #333;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 8px;
+            background: rgba(22, 33, 62, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            padding: 30px;
+            margin: 25px 0;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
         }
+
+        .strip-section:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 48px rgba(102, 126, 234, 0.4);
+            border-color: rgba(102, 126, 234, 0.6);
+        }
+
         .strip1-section {
-            background-color: #f0f0f0;
+            border-left: 4px solid #667eea;
         }
+
         .strip2-section {
-            background-color: #e0e8f0;
+            border-left: 4px solid #f093fb;
         }
+
         .settings-form {
-            max-width: 400px;
+            max-width: 500px;
+            margin: 0 auto;
         }
+
         .form-group {
-            margin: 15px 0;
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            transition: all 0.3s ease;
         }
+
+        .form-group:hover {
+            background: rgba(0, 0, 0, 0.3);
+            transform: translateX(5px);
+        }
+
         label {
             display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: rgba(234, 234, 234, 0.9);
+            font-size: 16px;
         }
+
         input[type="color"] {
-            width: 100px;
-            height: 40px;
-            border: none;
+            width: 120px;
+            height: 50px;
+            border: 3px solid rgba(102, 126, 234, 0.4);
+            border-radius: 10px;
             cursor: pointer;
+            transition: all 0.3s ease;
         }
+
+        input[type="color"]:hover {
+            border-color: rgba(102, 126, 234, 0.8);
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.5);
+        }
+
         input[type="number"] {
-            width: 100px;
-            padding: 5px;
+            width: 150px;
+            padding: 12px;
+            border: 2px solid rgba(102, 126, 234, 0.4);
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: rgba(102, 126, 234, 0.8);
+            box-shadow: 0 0 15px rgba(102, 126, 234, 0.5);
+        }
+
+        .success-message {
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            font-weight: 600;
+            text-align: center;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>LED Strip Settings</h1>
-        <button onclick="window.location.href='/'">Back to Controller</button>
+        <h1>⚙️ LED Strip Settings</h1>
+        <a class="button" href="/">← Back to Controller</a>
 
         <!-- Strip 1 Settings -->
         <div class="strip-section strip1-section">
-            <h2>Strip 1 Settings (120 LEDs - Pin 18)</h2>
+            <h2>🎨 Strip 1 Settings (120 LEDs - Pin 18)</h2>
             <form id="settings-form-strip1" class="settings-form">
                 <div class="form-group">
                     <label for="color1-strip1">Primary Color:</label>
@@ -70,14 +141,14 @@
                     <input type="number" id="delay-strip1" name="delay" min="1" max="5000">
                 </div>
 
-                <button type="button" onclick="saveSettings('strip1')">Save Strip 1 Settings</button>
+                <button type="button" onclick="saveSettings('strip1')">💾 Save Strip 1 Settings</button>
             </form>
-            <p id="message-strip1" style="display: none; color: green; margin-top: 10px;">Settings saved successfully!</p>
+            <p id="message-strip1" class="success-message" style="display: none;">✓ Settings saved successfully!</p>
         </div>
 
         <!-- Strip 2 Settings -->
         <div class="strip-section strip2-section">
-            <h2>Strip 2 Settings (240 LEDs - Pin 19)</h2>
+            <h2>✨ Strip 2 Settings (240 LEDs - Pin 19)</h2>
             <form id="settings-form-strip2" class="settings-form">
                 <div class="form-group">
                     <label for="color1-strip2">Primary Color:</label>
@@ -99,9 +170,9 @@
                     <input type="number" id="delay-strip2" name="delay" min="1" max="5000">
                 </div>
 
-                <button type="button" onclick="saveSettings('strip2')">Save Strip 2 Settings</button>
+                <button type="button" onclick="saveSettings('strip2')">💾 Save Strip 2 Settings</button>
             </form>
-            <p id="message-strip2" style="display: none; color: green; margin-top: 10px;">Settings saved successfully!</p>
+            <p id="message-strip2" class="success-message" style="display: none;">✓ Settings saved successfully!</p>
         </div>
     </div>
 

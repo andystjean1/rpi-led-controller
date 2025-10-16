@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matrix Effects - Strip 2</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .strip-section {
+            background: rgba(22, 33, 62, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            padding: 30px;
+            margin: 25px 0;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .strip-section:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 48px rgba(102, 126, 234, 0.4);
+            border-color: rgba(102, 126, 234, 0.6);
+        }
+
+        .strip2-section {
+            border-left: 4px solid #f093fb;
+        }
+
+        .effect-category {
+            margin: 30px 0;
+        }
+
+        .effect-category h3 {
+            color: rgba(240, 147, 251, 0.9);
+            font-size: 20px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(240, 147, 251, 0.3);
+        }
+
+        .effect-description {
+            font-size: 14px;
+            color: rgba(234, 234, 234, 0.8);
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            border-left: 3px solid rgba(240, 147, 251, 0.5);
+            line-height: 1.6;
+        }
+
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .button-grid button {
+            margin: 0;
+            width: 100%;
+        }
+
+        .text-input-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+
+        .text-input-section input {
+            flex: 1;
+            min-width: 200px;
+            padding: 12px;
+            border: 2px solid rgba(240, 147, 251, 0.4);
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .text-input-section input:focus {
+            outline: none;
+            border-color: rgba(240, 147, 251, 0.8);
+            box-shadow: 0 0 15px rgba(240, 147, 251, 0.5);
+        }
+
+        .matrix-info {
+            background: rgba(240, 147, 251, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            border: 2px solid rgba(240, 147, 251, 0.3);
+        }
+
+        .matrix-info strong {
+            color: #f093fb;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🎨 Matrix Effects (Strip 2 Only)</h1>
+        <a class="button" href="/">← Back to Main</a>
+
+        <div class="matrix-info">
+            <strong>📐 Matrix Configuration:</strong> Strip 2 is configured as a 4 rows × 60 columns matrix (240 LEDs total, serpentine layout)<br>
+            <strong>⚡ Note:</strong> These effects only work on Strip 2 due to its 2D matrix layout
+        </div>
+
+        <!-- Text Scroller Section -->
+        <div class="strip-section strip2-section">
+            <div class="effect-category">
+                <h3>📜 Text Scroller</h3>
+                <div class="effect-description">
+                    Scroll custom text messages across the matrix display
+                </div>
+                <div class="text-input-section">
+                    <input type="text" id="scrollText" placeholder="Enter text to scroll..." value="HELLO">
+                    <button onclick="startTextScroll()">▶️ Scroll Text</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Matrix Patterns Section -->
+        <div class="strip-section strip2-section">
+            <div class="effect-category">
+                <h3>🌀 Matrix Patterns</h3>
+                <div class="effect-description">
+                    Geometric patterns that utilize the 2D matrix layout
+                </div>
+                <div class="button-grid">
+                    <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'spiral'})">🌀 Spiral Pattern</button>
+                    <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'checkerboard'})">⬛ Checkerboard</button>
+                    <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'wave'})">🌊 Wave Pattern</button>
+                    <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'expanding_circles'})">⭕ Expanding Circles</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2D Animations Section -->
+        <div class="strip-section strip2-section">
+            <div class="effect-category">
+                <h3>🎮 2D Animations</h3>
+                <div class="effect-description">
+                    Dynamic animations that move across the matrix in 2D space
+                </div>
+                <div class="button-grid">
+                    <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'bouncing_ball'})">🏀 Bouncing Ball</button>
+                    <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'game_of_life'})">🧬 Game of Life</button>
+                    <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'snake'})">🐍 Snake Game</button>
+                    <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'tetris'})">🧱 Tetris Blocks</button>
+                    <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'matrix_race'})">🏁 4-Lane Race</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Visualizations Section -->
+        <div class="strip-section strip2-section">
+            <div class="effect-category">
+                <h3>📊 Visualizations</h3>
+                <div class="effect-description">
+                    Data visualization effects including graphs and simulated displays
+                </div>
+                <div class="button-grid">
+                    <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'bar_graph'})">📊 Bar Graph</button>
+                    <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'spectrum'})">🎵 Spectrum Analyzer</button>
+                    <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'heat_map'})">🔥 Heat Map</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="strip-section strip2-section">
+            <h3>⚡ Quick Actions</h3>
+            <div class="button-grid">
+                <button class="button-danger" onclick="triggerEndpoint('/stop', {strip_id: 'strip2'})">⏹️ Stop Strip 2</button>
+                <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'off'})">💤 Turn Off Strip 2</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Trigger endpoint function (POST request)
+        async function triggerEndpoint(endpoint, data = null) {
+            try {
+                const options = {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                };
+                const response = await fetch(endpoint, options);
+                const result = await response.json();
+                console.log('API Response:', result);
+                return result;
+            } catch (error) {
+                console.error('Error triggering endpoint:', error);
+                alert('Error: Unable to trigger the endpoint. Check console for details.');
+            }
+        }
+
+        // Start text scroll with custom text
+        function startTextScroll() {
+            const text = document.getElementById('scrollText').value || 'HELLO';
+            triggerEndpoint('/start', {
+                strip_id: 'strip2',
+                effect: 'text_scroll',
+                args: [text]
+            });
+        }
+    </script>
+</body>
+
+</html>

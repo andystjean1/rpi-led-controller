@@ -8,41 +8,73 @@
     <link rel="stylesheet" href="/static/styles.css">
     <style>
         .strip-section {
-            border: 2px solid #333;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 8px;
+            background: rgba(22, 33, 62, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            padding: 30px;
+            margin: 25px 0;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
         }
+
+        .strip-section:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 48px rgba(102, 126, 234, 0.4);
+            border-color: rgba(102, 126, 234, 0.6);
+        }
+
         .strip1-section {
-            background-color: #f0f0f0;
+            border-left: 4px solid #667eea;
         }
+
         .strip2-section {
-            background-color: #e0e8f0;
+            border-left: 4px solid #f093fb;
         }
+
         .clock-description {
-            font-size: 12px;
-            color: #666;
-            margin: 10px 0;
+            font-size: 14px;
+            color: rgba(234, 234, 234, 0.8);
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            border-left: 3px solid rgba(102, 126, 234, 0.5);
+            line-height: 1.6;
+        }
+
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .button-grid button {
+            margin: 0;
+            width: 100%;
         }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <h1>Clock Controller</h1>
-        <a class="button" href="/">Back to Main</a>
+        <h1>🕐 Clock Controller</h1>
+        <a class="button" href="/">← Back to Main</a>
 
         <!-- Strip 1 Clocks -->
         <div class="strip-section strip1-section">
-            <h2>Strip 1 Clocks (120 LEDs)</h2>
-            <button onclick="triggerEndpoint('/start', {strip_id: 'strip1', effect: 'clock'})">Clock 1</button>
-            <button onclick="triggerEndpoint('/start', {strip_id: 'strip1', effect: 'clock2'})">Clock 2</button>
-            <button onclick="triggerEndpoint('/start', {strip_id: 'strip1', effect: 'clock3'})">Clock 3</button>
-            <button onclick="triggerEndpoint('/start', {strip_id: 'strip1', effect: 'clock4'})">Clock 4</button>
-            <button onclick="triggerEndpoint('/start', {strip_id: 'strip1', effect: 'clock5'})">Clock 5</button>
-            <button onclick="triggerEndpoint('/start', {strip_id: 'strip1', effect: 'clock6'})">Clock 6</button>
+            <h2>🎨 Strip 1 Clocks (120 LEDs)</h2>
+            <div class="button-grid">
+                <button onclick="triggerEndpoint('/start', {strip_id: 'strip1', effect: 'clock'})">Clock 1</button>
+                <button onclick="triggerEndpoint('/start', {strip_id: 'strip1', effect: 'clock2'})">Clock 2</button>
+                <button onclick="triggerEndpoint('/start', {strip_id: 'strip1', effect: 'clock3'})">Clock 3</button>
+                <button onclick="triggerEndpoint('/start', {strip_id: 'strip1', effect: 'clock4'})">Clock 4</button>
+                <button onclick="triggerEndpoint('/start', {strip_id: 'strip1', effect: 'clock5'})">Clock 5</button>
+                <button onclick="triggerEndpoint('/start', {strip_id: 'strip1', effect: 'clock6'})">Clock 6</button>
+            </div>
             <div class="clock-description">
-                <strong>Clock Types:</strong><br>
+                <strong>⏰ Clock Types:</strong><br>
                 Clock 1: Sections with offsets<br>
                 Clock 2: Full strip utilization<br>
                 Clock 3: Clock 2 with fill<br>
@@ -54,15 +86,17 @@
 
         <!-- Strip 2 Clocks -->
         <div class="strip-section strip2-section">
-            <h2>Strip 2 Clocks (240 LEDs)</h2>
-            <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'clock'})">Clock 1</button>
-            <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'clock2'})">Clock 2</button>
-            <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'clock3'})">Clock 3</button>
-            <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'clock4'})">Clock 4</button>
-            <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'clock5'})">Clock 5</button>
-            <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'clock6'})">Clock 6</button>
+            <h2>✨ Strip 2 Clocks (240 LEDs)</h2>
+            <div class="button-grid">
+                <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'clock'})">Clock 1</button>
+                <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'clock2'})">Clock 2</button>
+                <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'clock3'})">Clock 3</button>
+                <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'clock4'})">Clock 4</button>
+                <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'clock5'})">Clock 5</button>
+                <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'clock6'})">Clock 6</button>
+            </div>
             <div class="clock-description">
-                240 LEDs provides higher resolution for clock displays!
+                💡 240 LEDs provides higher resolution for clock displays!
             </div>
         </div>
     </div>

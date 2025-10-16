@@ -11,10 +11,20 @@ import clock_effects
 import colors
 import effects
 import light_race
+import matrix_effects
 
 # Flask app initialization
 app = Flask(__name__)
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
+
+# strip 1 is arranged in a straight line
+
+# strip 2 is arranged as a 4 x 60 matrix, the matrix can be oriented horizontally or vertically
+# the complete led strip snakes so indexes of the pixels on the matrix go like this
+# 0-59 
+# 119-60
+# 120-179
+# 239-180
 
 # LED strip configuration
 LED_COUNT_STRIP1 = 120
@@ -134,7 +144,7 @@ def get_jobs(strip_id):
     strip_obj = strips[strip_id]["strip"]
     controller = strips[strip_id]["controller"]
 
-    return {
+    jobs = {
         "wheel": lambda: effects.color_wheel(controller),
         "warm_wheel": lambda: effects.warm_wheel(controller),
         "lime_green": lambda: effects.fill_strip(strip_obj, colors.LIME_GREEN),
@@ -153,6 +163,33 @@ def get_jobs(strip_id):
         "allin": lambda: effects.allin(strip_obj),
     }
 
+    # Add matrix effects only for strip2 (240 LED matrix)
+    if strip_id == "strip2":
+        jobs.update({
+            # Text Scroller
+            "text_scroll": lambda text="HELLO", color=None: matrix_effects.text_scroller(strip_obj, text, color, strip_id),
+
+            # Matrix Patterns
+            "spiral": lambda: matrix_effects.spiral_pattern(strip_obj, strip_id),
+            "checkerboard": lambda: matrix_effects.checkerboard_pattern(strip_obj, strip_id),
+            "wave": lambda: matrix_effects.wave_pattern(strip_obj, strip_id),
+            "expanding_circles": lambda: matrix_effects.expanding_circles(strip_obj, strip_id),
+
+            # 2D Animations
+            "bouncing_ball": lambda: matrix_effects.bouncing_ball(strip_obj, strip_id),
+            "game_of_life": lambda: matrix_effects.game_of_life(strip_obj, strip_id),
+            "snake": lambda: matrix_effects.snake_game(strip_obj, strip_id),
+            "tetris": lambda: matrix_effects.tetris_blocks(strip_obj, strip_id),
+            "matrix_race": lambda: matrix_effects.matrix_race(strip_obj, strip_id),
+
+            # Visualizations
+            "bar_graph": lambda: matrix_effects.bar_graph(strip_obj, strip_id),
+            "spectrum": lambda: matrix_effects.spectrum_analyzer(strip_obj, strip_id),
+            "heat_map": lambda: matrix_effects.heat_map(strip_obj, strip_id),
+        })
+
+    return jobs
+
 
 def apply_settings(strip_id):
     """Apply settings to a specific strip"""
@@ -170,6 +207,7 @@ def reset_stop_flags(strip_id):
     """Reset stop flags for a specific strip"""
     effects.set_stop_flag(False, strip_id)
     clock_effects.set_stop_flag(False, strip_id)
+    matrix_effects.set_stop_flag(False, strip_id)
     if strip_id == "strip1":  # Only clear race event for strip1
         light_race.winner_event.clear()
 
@@ -178,6 +216,7 @@ def stop_all_effects(strip_id):
     """Stop all effects for a specific strip"""
     effects.set_stop_flag(True, strip_id)
     clock_effects.set_stop_flag(True, strip_id)
+    matrix_effects.set_stop_flag(True, strip_id)
     if strip_id == "strip1":  # Only set race event for strip1
         light_race.winner_event.set()
 
@@ -228,6 +267,10 @@ def index():
 @app.route("/clocks", methods=["GET"])
 def clocks_page():
     return render_template('clocks.html')
+
+@app.route("/matrix", methods=["GET"])
+def matrix_page():
+    return render_template('matrix.html')
 
 @app.route("/poker-voice-control", methods=["GET"])
 def voice_control():

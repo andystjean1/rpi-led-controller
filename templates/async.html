@@ -8,29 +8,90 @@
     <link rel="stylesheet" href="/static/styles.css">
     <style>
         .strip-section {
-            border: 2px solid #333;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 8px;
+            background: rgba(22, 33, 62, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            padding: 30px;
+            margin: 25px 0;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
         }
+
+        .strip-section:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 48px rgba(102, 126, 234, 0.4);
+            border-color: rgba(102, 126, 234, 0.6);
+        }
+
         .strip1-section {
-            background-color: #f0f0f0;
+            border-left: 4px solid #667eea;
         }
+
         .strip2-section {
-            background-color: #e0e8f0;
+            border-left: 4px solid #f093fb;
         }
+
         .status {
-            font-weight: bold;
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 4px;
-            background-color: #ddd;
+            font-weight: 600;
+            padding: 15px 25px;
+            margin: 20px auto;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            font-size: 18px;
+            text-align: center;
+            transition: all 0.3s ease;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            max-width: 400px;
         }
+
         .status.running {
-            background-color: #90EE90;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            border-color: #38ef7d;
+            box-shadow: 0 0 20px rgba(56, 239, 125, 0.5);
+            animation: pulse 2s ease-in-out infinite;
         }
+
         .status.idle {
-            background-color: #FFB6C1;
+            background: linear-gradient(135deg, #434343 0%, #000000 100%);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(56, 239, 125, 0.5);
+            }
+            50% {
+                box-shadow: 0 0 30px rgba(56, 239, 125, 0.8);
+            }
+        }
+
+        button[style*="background-color: #ff6b6b"] {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%) !important;
+        }
+
+        button[style*="background-color: #ff6b6b"]:hover {
+            box-shadow: 0 12px 40px rgba(235, 51, 73, 0.6) !important;
+        }
+
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .button-grid button {
+            margin: 0;
+            width: 100%;
+        }
+
+        .nav-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 40px;
         }
     </style>
 </head>
@@ -41,42 +102,54 @@
 
         <!-- Strip 1 Controls -->
         <div class="strip-section strip1-section">
-            <h2>Strip 1 (120 LEDs - Pin 18)</h2>
+            <h2>🎨 Strip 1 (120 LEDs - Pin 18)</h2>
             <div id="status1" class="status">Status: Loading...</div>
-            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'wheel' })">Color Wheel</button>
-            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'warm_wheel' })">Warm Wheel</button>
-            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'flash' })">Flash</button>
-            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'leapfrog' })">Leap Frog</button>
-            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'bounce' })">Bounce</button>
-            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'rollout' })">Rollout</button>
-            <button class="off" onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'off' })">Turn Off</button>
-            <button onclick="stopStrip('strip1')" style="background-color: #ff6b6b;">Stop Effect</button>
+            <div class="button-grid">
+                <button onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'wheel' })">🌈 Color Wheel</button>
+                <button onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'warm_wheel' })">🔥 Warm Wheel</button>
+                <button onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'flash' })">⚡ Flash</button>
+                <button onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'leapfrog' })">🐸 Leap Frog</button>
+                <button onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'bounce' })">🏀 Bounce</button>
+                <button onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'rollout' })">📜 Rollout</button>
+                <button onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'race' })">🏁 Race</button>
+                <button class="off" onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'off' })">💤 Turn Off</button>
+                <button onclick="stopStrip('strip1')" style="background-color: #ff6b6b;">⏹️ Stop Effect</button>
+            </div>
         </div>
 
         <!-- Strip 2 Controls -->
         <div class="strip-section strip2-section">
-            <h2>Strip 2 (240 LEDs - Pin 19)</h2>
+            <h2>✨ Strip 2 (240 LEDs - Pin 19)</h2>
             <div id="status2" class="status">Status: Loading...</div>
-            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'wheel' })">Color Wheel</button>
-            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'warm_wheel' })">Warm Wheel</button>
-            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'flash' })">Flash</button>
-            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'leapfrog' })">Leap Frog</button>
-            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'bounce' })">Bounce</button>
-            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'rollout' })">Rollout</button>
-            <button class="off" onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'off' })">Turn Off</button>
-            <button onclick="stopStrip('strip2')" style="background-color: #ff6b6b;">Stop Effect</button>
+            <div class="button-grid">
+                <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'wheel' })">🌈 Color Wheel</button>
+                <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'warm_wheel' })">🔥 Warm Wheel</button>
+                <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'flash' })">⚡ Flash</button>
+                <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'leapfrog' })">🐸 Leap Frog</button>
+                <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'bounce' })">🏀 Bounce</button>
+                <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'rollout' })">📜 Rollout</button>
+                <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'race' })">🏁 Race (Linear)</button>
+                <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'matrix_race' })">🏁 Matrix Race</button>
+                <button class="off" onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'off' })">💤 Turn Off</button>
+                <button onclick="stopStrip('strip2')" style="background-color: #ff6b6b;">⏹️ Stop Effect</button>
+            </div>
         </div>
 
         <!-- Quick Actions -->
         <div class="strip-section">
-            <h2>Quick Actions</h2>
-            <button onclick="turnOffBoth()">Turn Off Both Strips</button>
-            <button onclick="testBothStrips()">Test: Wheel on Strip1, Flash on Strip2</button>
+            <h2>⚡ Quick Actions</h2>
+            <div class="button-grid">
+                <button onclick="turnOffBoth()">🌙 Turn Off Both Strips</button>
+                <button onclick="testBothStrips()">🎪 Test Both Strips</button>
+            </div>
         </div>
 
-        <a class="button" href="/poker-voice-control">Poker Bot</a>
-        <a class="button" href="/clocks">Clocks</a>
-        <a class="button" href="/settings">Settings</a>
+        <div class="nav-buttons">
+            <a class="button" href="/clocks">🕐 Clocks</a>
+            <a class="button" href="/matrix">🎨 Matrix Effects (Strip 2)</a>
+            <a class="button" href="/settings">⚙️ Settings</a>
+            <a class="button" href="/poker-voice-control">🎲 Poker Bot</a>
+        </div>
     </div>
 
     <script>
