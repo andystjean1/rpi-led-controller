@@ -5,52 +5,127 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .strip-section {
+            border: 2px solid #333;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .strip1-section {
+            background-color: #f0f0f0;
+        }
+        .strip2-section {
+            background-color: #e0e8f0;
+        }
+        .settings-form {
+            max-width: 400px;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="color"] {
+            width: 100px;
+            height: 40px;
+            border: none;
+            cursor: pointer;
+        }
+        input[type="number"] {
+            width: 100px;
+            padding: 5px;
+        }
+    </style>
 </head>
 <body>
-    <h1>LED Strip Settings</h1>
-    <form id="settings-form">
-        <label for="color1">Primary Color:</label>
-        <input type="color" id="color1" name="color1">
-        <br><br>
+    <div class="container">
+        <h1>LED Strip Settings</h1>
+        <button onclick="window.location.href='/'">Back to Controller</button>
 
-        <label for="color2">Secondary Color:</label>
-        <input type="color" id="color2" name="color2">
-        <br><br>
+        <!-- Strip 1 Settings -->
+        <div class="strip-section strip1-section">
+            <h2>Strip 1 Settings (120 LEDs - Pin 18)</h2>
+            <form id="settings-form-strip1" class="settings-form">
+                <div class="form-group">
+                    <label for="color1-strip1">Primary Color:</label>
+                    <input type="color" id="color1-strip1" name="color1">
+                </div>
 
-        <label for="color3">Tertiary Color:</label>
-        <input type="color" id="color3" name="color3">
-        <br><br>
+                <div class="form-group">
+                    <label for="color2-strip1">Secondary Color:</label>
+                    <input type="color" id="color2-strip1" name="color2">
+                </div>
 
-        <label for="delay">Effect Delay (ms):</label>
-        <input type="number" id="delay" name="delay" min="1">
-        <br><br>
+                <div class="form-group">
+                    <label for="color3-strip1">Tertiary Color:</label>
+                    <input type="color" id="color3-strip1" name="color3">
+                </div>
 
-        <button type="button" id="save-settings">Save Settings</button>
-    </form>
-    <p id="message" style="display: none; color: green;">Settings saved successfully!</p>
-    <br>
-    <button onclick="window.location.href='/'">Back to Controller</button>
+                <div class="form-group">
+                    <label for="delay-strip1">Effect Delay (ms):</label>
+                    <input type="number" id="delay-strip1" name="delay" min="1" max="5000">
+                </div>
+
+                <button type="button" onclick="saveSettings('strip1')">Save Strip 1 Settings</button>
+            </form>
+            <p id="message-strip1" style="display: none; color: green; margin-top: 10px;">Settings saved successfully!</p>
+        </div>
+
+        <!-- Strip 2 Settings -->
+        <div class="strip-section strip2-section">
+            <h2>Strip 2 Settings (240 LEDs - Pin 19)</h2>
+            <form id="settings-form-strip2" class="settings-form">
+                <div class="form-group">
+                    <label for="color1-strip2">Primary Color:</label>
+                    <input type="color" id="color1-strip2" name="color1">
+                </div>
+
+                <div class="form-group">
+                    <label for="color2-strip2">Secondary Color:</label>
+                    <input type="color" id="color2-strip2" name="color2">
+                </div>
+
+                <div class="form-group">
+                    <label for="color3-strip2">Tertiary Color:</label>
+                    <input type="color" id="color3-strip2" name="color3">
+                </div>
+
+                <div class="form-group">
+                    <label for="delay-strip2">Effect Delay (ms):</label>
+                    <input type="number" id="delay-strip2" name="delay" min="1" max="5000">
+                </div>
+
+                <button type="button" onclick="saveSettings('strip2')">Save Strip 2 Settings</button>
+            </form>
+            <p id="message-strip2" style="display: none; color: green; margin-top: 10px;">Settings saved successfully!</p>
+        </div>
+    </div>
 
     <script>
-        // Fetch current settings and prepopulate the form
-        function fetchSettings() {
-            fetch("/get-settings")
+        // Fetch current settings and prepopulate the form for a specific strip
+        function fetchSettings(stripId) {
+            fetch(`/get-settings?strip_id=${stripId}`)
                 .then(response => response.json())
                 .then(data => {
-                    document.getElementById("color1").value = data.colors[0];
-                    document.getElementById("color2").value = data.colors[1];
-                    document.getElementById("color3").value = data.colors[2];
-                    document.getElementById("delay").value = data.delay;
+                    document.getElementById(`color1-${stripId}`).value = data.colors[0];
+                    document.getElementById(`color2-${stripId}`).value = data.colors[1];
+                    document.getElementById(`color3-${stripId}`).value = data.colors[2];
+                    document.getElementById(`delay-${stripId}`).value = data.delay;
                 })
                 .catch(error => {
-                    console.error("Error fetching settings:", error);
+                    console.error(`Error fetching settings for ${stripId}:`, error);
                 });
         }
 
-        // Save settings via AJAX
-        document.getElementById("save-settings").addEventListener("click", function() {
-            const form = document.getElementById("settings-form");
+        // Save settings via AJAX for a specific strip
+        function saveSettings(stripId) {
+            const form = document.getElementById(`settings-form-${stripId}`);
             const formData = new FormData(form);
+            formData.append('strip_id', stripId);
 
             fetch("/update-settings", {
                 method: "POST",
@@ -62,7 +137,7 @@
             .then(response => response.json())
             .then(data => {
                 if (data.message) {
-                    const messageElement = document.getElementById("message");
+                    const messageElement = document.getElementById(`message-${stripId}`);
                     messageElement.style.display = "block";
                     messageElement.textContent = data.message;
 
@@ -73,12 +148,15 @@
                 }
             })
             .catch(error => {
-                console.error("Error saving settings:", error);
+                console.error(`Error saving settings for ${stripId}:`, error);
             });
-        });
+        }
 
-        // Fetch and prepopulate settings on page load
-        window.onload = fetchSettings;
+        // Fetch and prepopulate settings for both strips on page load
+        window.onload = function() {
+            fetchSettings('strip1');
+            fetchSettings('strip2');
+        };
     </script>
 </body>
 </html>

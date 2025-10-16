@@ -12,15 +12,17 @@ LED_BRIGHTNESS = 255
 LED_INVERT = False
 LED_CHANNEL = 0
 
-class LEDStripController: 
+class LEDStripController:
     """Class for Led Controller"""
 
-    def __init__(self):
+    def __init__(self, strip_id="strip1", led_count=LED_COUNT, led_pin=LED_PIN, led_channel=LED_CHANNEL):
         # Initialize the LED strip
-        strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
+        self.strip_id = strip_id
+        strip = PixelStrip(led_count, led_pin, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, led_channel)
         strip.begin()
         self.strip = strip
         self.numPixels = strip.numPixels()
+        self.num_pixels = self.numPixels
         self.color_list = [colors.RED, colors.GREEN, colors.BLUE]
         self.delay = 500 / 1000 #milliseconds
 

@@ -6,27 +6,172 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LED ASYNC Controller</title>
     <link rel="stylesheet" href="/static/styles.css">
-    <script type="text/javascript" src="static/index.js"></script>
+    <style>
+        .strip-section {
+            border: 2px solid #333;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .strip1-section {
+            background-color: #f0f0f0;
+        }
+        .strip2-section {
+            background-color: #e0e8f0;
+        }
+        .status {
+            font-weight: bold;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            background-color: #ddd;
+        }
+        .status.running {
+            background-color: #90EE90;
+        }
+        .status.idle {
+            background-color: #FFB6C1;
+        }
+    </style>
 </head>
 
 <body>
     <div class="container">
-        <h1>LED Controller</h1>
-        <button onclick="triggerEndpoint('/start', { effect: 'wheel' })">Color Wheel Effect</button>
-        <button onclick="triggerEndpoint('/start', { effect: 'warm_wheel' })">Warm Wheel Effect</button>
-        <button onclick="triggerEndpoint('/start', { effect: 'lime_green' })">Lime Green</button>
-        <button onclick="triggerEndpoint('/start', { effect: 'race' })">Start Race</button>
-        <button class="off" onclick="triggerEndpoint('/start', { effect: 'off' })">Turn Off</button>
-        <button onclick="triggerEndpoint('/start', { effect: 'flash' })">Flash</button>
-        <button onclick="triggerEndpoint('/start', { effect: 'leapfrog' })">Leap Frog</button>
-        <button onclick="triggerEndpoint('/start', { effect: 'bounce' })">Bounce</button>
-        <button onclick="triggerEndpoint('/start', { effect: 'rollout' })">Rollout</button>
-        
+        <h1>Dual LED Strip Controller</h1>
+
+        <!-- Strip 1 Controls -->
+        <div class="strip-section strip1-section">
+            <h2>Strip 1 (120 LEDs - Pin 18)</h2>
+            <div id="status1" class="status">Status: Loading...</div>
+            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'wheel' })">Color Wheel</button>
+            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'warm_wheel' })">Warm Wheel</button>
+            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'flash' })">Flash</button>
+            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'leapfrog' })">Leap Frog</button>
+            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'bounce' })">Bounce</button>
+            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'rollout' })">Rollout</button>
+            <button class="off" onclick="triggerAndUpdate('/start', { strip_id: 'strip1', effect: 'off' })">Turn Off</button>
+            <button onclick="stopStrip('strip1')" style="background-color: #ff6b6b;">Stop Effect</button>
+        </div>
+
+        <!-- Strip 2 Controls -->
+        <div class="strip-section strip2-section">
+            <h2>Strip 2 (240 LEDs - Pin 19)</h2>
+            <div id="status2" class="status">Status: Loading...</div>
+            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'wheel' })">Color Wheel</button>
+            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'warm_wheel' })">Warm Wheel</button>
+            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'flash' })">Flash</button>
+            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'leapfrog' })">Leap Frog</button>
+            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'bounce' })">Bounce</button>
+            <button onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'rollout' })">Rollout</button>
+            <button class="off" onclick="triggerAndUpdate('/start', { strip_id: 'strip2', effect: 'off' })">Turn Off</button>
+            <button onclick="stopStrip('strip2')" style="background-color: #ff6b6b;">Stop Effect</button>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="strip-section">
+            <h2>Quick Actions</h2>
+            <button onclick="turnOffBoth()">Turn Off Both Strips</button>
+            <button onclick="testBothStrips()">Test: Wheel on Strip1, Flash on Strip2</button>
+        </div>
+
         <a class="button" href="/poker-voice-control">Poker Bot</a>
         <a class="button" href="/clocks">Clocks</a>
         <a class="button" href="/settings">Settings</a>
     </div>
-        
+
+    <script>
+        // Trigger endpoint function (POST request)
+        async function triggerEndpoint(endpoint, data = null) {
+            try {
+                const options = {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                };
+                const response = await fetch(endpoint, options);
+                const result = await response.json();
+                console.log('API Response:', result);
+                return result;
+            } catch (error) {
+                console.error('Error triggering endpoint:', error);
+                alert('Error: Unable to trigger the endpoint. Check console for details.');
+            }
+        }
+
+        // Update status for both strips
+        async function updateStatus() {
+            try {
+                // Update Strip 1
+                const response1 = await fetch('/status?strip_id=strip1');
+                const data1 = await response1.json();
+                const status1El = document.getElementById('status1');
+                if (data1.status === 'running') {
+                    status1El.textContent = `Status: Running (${data1.effect})`;
+                    status1El.className = 'status running';
+                } else {
+                    status1El.textContent = 'Status: Idle';
+                    status1El.className = 'status idle';
+                }
+
+                // Update Strip 2
+                const response2 = await fetch('/status?strip_id=strip2');
+                const data2 = await response2.json();
+                const status2El = document.getElementById('status2');
+                if (data2.status === 'running') {
+                    status2El.textContent = `Status: Running (${data2.effect})`;
+                    status2El.className = 'status running';
+                } else {
+                    status2El.textContent = 'Status: Idle';
+                    status2El.className = 'status idle';
+                }
+            } catch (error) {
+                console.error('Error updating status:', error);
+            }
+        }
+
+        // Stop a specific strip
+        async function stopStrip(stripId) {
+            try {
+                const response = await fetch('/stop', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ strip_id: stripId })
+                });
+                const result = await response.json();
+                console.log(result);
+                updateStatus();
+            } catch (error) {
+                console.error('Error stopping strip:', error);
+            }
+        }
+
+        // Turn off both strips
+        async function turnOffBoth() {
+            await triggerEndpoint('/start', { strip_id: 'strip1', effect: 'off' });
+            await triggerEndpoint('/start', { strip_id: 'strip2', effect: 'off' });
+            setTimeout(updateStatus, 500);
+        }
+
+        // Test both strips running different effects
+        async function testBothStrips() {
+            await triggerEndpoint('/start', { strip_id: 'strip1', effect: 'wheel' });
+            await triggerEndpoint('/start', { strip_id: 'strip2', effect: 'flash' });
+            setTimeout(updateStatus, 500);
+        }
+
+        // Wrapper function for buttons to update status after triggering
+        async function triggerAndUpdate(endpoint, data) {
+            await triggerEndpoint(endpoint, data);
+            setTimeout(updateStatus, 500);
+        }
+
+        // Update status every 2 seconds
+        setInterval(updateStatus, 2000);
+        updateStatus(); // Initial update
+    </script>
+
 </body>
 
 </html>

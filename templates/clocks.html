@@ -4,21 +4,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LED Controller</title>
+    <title>LED Clock Controller</title>
     <link rel="stylesheet" href="/static/styles.css">
-    <script type="text/javascript" src="/static/index.js"></script>
+    <style>
+        .strip-section {
+            border: 2px solid #333;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .strip1-section {
+            background-color: #f0f0f0;
+        }
+        .strip2-section {
+            background-color: #e0e8f0;
+        }
+        .clock-description {
+            font-size: 12px;
+            color: #666;
+            margin: 10px 0;
+        }
+    </style>
 </head>
 
 <body>
     <div class="container">
         <h1>Clock Controller</h1>
-        <button onclick="triggerEndpoint('/start', {effect: 'clock'})">Clock</button>
-        <button onclick="triggerEndpoint('/start', {effect: 'clock2'})">Clock 2</button>
-        <button onclick="triggerEndpoint('/start', {effect: 'clock3'})">Clock 3</button>
-        <button onclick="triggerEndpoint('/start', {effect: 'clock4'})">Clock 4</button>
-        <button onclick="triggerEndpoint('/start', {effect: 'clock5'})">Clock 5</button>
-        <button onclick="triggerEndpoint('/start', {effect: 'clock6'})">Clock 6</button>
+        <a class="button" href="/">Back to Main</a>
+
+        <!-- Strip 1 Clocks -->
+        <div class="strip-section strip1-section">
+            <h2>Strip 1 Clocks (120 LEDs)</h2>
+            <button onclick="triggerEndpoint('/start', {strip_id: 'strip1', effect: 'clock'})">Clock 1</button>
+            <button onclick="triggerEndpoint('/start', {strip_id: 'strip1', effect: 'clock2'})">Clock 2</button>
+            <button onclick="triggerEndpoint('/start', {strip_id: 'strip1', effect: 'clock3'})">Clock 3</button>
+            <button onclick="triggerEndpoint('/start', {strip_id: 'strip1', effect: 'clock4'})">Clock 4</button>
+            <button onclick="triggerEndpoint('/start', {strip_id: 'strip1', effect: 'clock5'})">Clock 5</button>
+            <button onclick="triggerEndpoint('/start', {strip_id: 'strip1', effect: 'clock6'})">Clock 6</button>
+            <div class="clock-description">
+                <strong>Clock Types:</strong><br>
+                Clock 1: Sections with offsets<br>
+                Clock 2: Full strip utilization<br>
+                Clock 3: Clock 2 with fill<br>
+                Clock 4: With markers<br>
+                Clock 5: Rollout animation<br>
+                Clock 6: Async rollout with markers
+            </div>
+        </div>
+
+        <!-- Strip 2 Clocks -->
+        <div class="strip-section strip2-section">
+            <h2>Strip 2 Clocks (240 LEDs)</h2>
+            <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'clock'})">Clock 1</button>
+            <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'clock2'})">Clock 2</button>
+            <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'clock3'})">Clock 3</button>
+            <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'clock4'})">Clock 4</button>
+            <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'clock5'})">Clock 5</button>
+            <button onclick="triggerEndpoint('/start', {strip_id: 'strip2', effect: 'clock6'})">Clock 6</button>
+            <div class="clock-description">
+                240 LEDs provides higher resolution for clock displays!
+            </div>
+        </div>
     </div>
+
+    <script>
+        // Trigger endpoint function (POST request)
+        async function triggerEndpoint(endpoint, data = null) {
+            try {
+                const options = {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                };
+                const response = await fetch(endpoint, options);
+                const result = await response.json();
+                console.log('API Response:', result);
+                return result;
+            } catch (error) {
+                console.error('Error triggering endpoint:', error);
+                alert('Error: Unable to trigger the endpoint. Check console for details.');
+            }
+        }
+    </script>
 </body>
 
 </html>

@@ -6,21 +6,26 @@ import pytz
 import rpi_ws281x
 import colors
 
-stop_flag = False
-def set_stop_flag(value: bool):
-    global stop_flag
-    stop_flag = value
+# Dictionary to track stop flags per strip
+stop_flags = {}
 
-def clock(strip):
+def set_stop_flag(value: bool, strip_id="strip1"):
+    global stop_flags
+    stop_flags[strip_id] = value
+
+def get_stop_flag(strip_id="strip1"):
+    return stop_flags.get(strip_id, False)
+
+def clock(strip, strip_id="strip1"):
     """clock 1 : theres some sections and offsets every 2 seconds, seconds updates"""
     num_pixels = strip.numPixels()
     timezone = pytz.timezone('America/New_York')
-    
+
     offset = 2
     hour_offset = 12
     minute_offset = 60
 
-    while True and not stop_flag:
+    while True and not get_stop_flag(strip_id):
         start_idx = 6
 
         ct = dt.now(timezone).time()
@@ -64,12 +69,12 @@ def clock(strip):
         strip.show()
         time.sleep(1)
 
-def clock2(strip):
+def clock2(strip, strip_id="strip1"):
     """utilizes the whole strip"""
     num_pixels = strip.numPixels()
     timezone = pytz.timezone('America/New_York')
 
-    while True and not stop_flag:
+    while True and not get_stop_flag(strip_id):
 
         ct = dt.now(timezone).time()
         hour = ct.hour
@@ -106,12 +111,12 @@ def clock2(strip):
         strip.show()
         time.sleep(1)
 
-def clock3(strip):
+def clock3(strip, strip_id="strip1"):
     "clock2 with fill"
     num_pixels = strip.numPixels()
     timezone = pytz.timezone('America/New_York')
 
-    while True and not stop_flag:
+    while True and not get_stop_flag(strip_id):
 
         ct = dt.now(timezone).time()
         hour = ct.hour
@@ -167,12 +172,12 @@ def clock3(strip):
         strip.show()
         time.sleep(1)
 
-def clock4(strip):
+def clock4(strip, strip_id="strip1"):
     "clock with markers"
     num_pixels = strip.numPixels()
     timezone = pytz.timezone('America/New_York')
 
-    while True and not stop_flag:
+    while True and not get_stop_flag(strip_id):
         ct = dt.now(timezone).time()
         hour = ct.hour
         minute = ct.minute
@@ -219,12 +224,12 @@ def clock4(strip):
         time.sleep(1)
 
 
-def clock5(strip):
+def clock5(strip, strip_id="strip1"):
     "clock with markers"
     num_pixels = strip.numPixels()
     timezone = pytz.timezone('America/New_York')
 
-    while not stop_flag:
+    while not get_stop_flag(strip_id):
         ct = dt.now(timezone).time()
         hour = ct.hour
         minute = ct.minute
@@ -258,13 +263,12 @@ def clock5(strip):
             
         strip.show()
 
-async def clock6(strip):
+async def clock6(strip, strip_id="strip1"):
     """Clock with rollout animation for seconds."""
-    global stop_flag
     num_pixels = strip.numPixels()
     timezone = pytz.timezone("America/New_York")
 
-    while not stop_flag:
+    while not get_stop_flag(strip_id):
         ct = dt.now(timezone).time()
         hour = ct.hour
         minute = ct.minute
@@ -298,7 +302,7 @@ async def clock6(strip):
         delay = 1.0 / rollout_steps if rollout_steps > 0 else 1.0  # Calculate step delay
 
         for j in range(rollout_steps):
-            if stop_flag:
+            if get_stop_flag(strip_id):
                 break
             strip.setPixelColor(j, second_color)
             strip.show()
@@ -306,7 +310,7 @@ async def clock6(strip):
 
         # Turn off the second's rollout once complete
         for j in range(rollout_steps):
-            if stop_flag:
+            if get_stop_flag(strip_id):
                 break
             strip.setPixelColor(j, colors.OFF)
 

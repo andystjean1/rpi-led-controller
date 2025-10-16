@@ -7,11 +7,15 @@ import rpi_ws281x
 import colors
 import clock_effects
 
-stop_flag = False
+# Dictionary to track stop flags per strip
+stop_flags = {}
 
-def set_stop_flag(value: bool):
-    global stop_flag
-    stop_flag = value
+def set_stop_flag(value: bool, strip_id="strip1"):
+    global stop_flags
+    stop_flags[strip_id] = value
+
+def get_stop_flag(strip_id="strip1"):
+    return stop_flags.get(strip_id, False)
 
 def fill_strip(strip, color):
     for i in range(strip.numPixels()):
@@ -22,12 +26,13 @@ def fill_strip(strip, color):
 
 def color_wheel(controller):
     """Perform a color wheel effect over the strip."""
-    while not stop_flag:
+    strip_id = getattr(controller, 'strip_id', 'strip1')
+    while not get_stop_flag(strip_id):
         for j in range(256):  # 0-255 for color wheel
-            if stop_flag:
+            if get_stop_flag(strip_id):
                 break
             for i in range(controller.numPixels):
-                if stop_flag:
+                if get_stop_flag(strip_id):
                     break
 
                 controller.set_pixel(i, colors.wheel((i + j) & 255))
@@ -35,11 +40,12 @@ def color_wheel(controller):
             time.sleep(controller.delay)
 
 def flash(controller):
+    strip_id = getattr(controller, 'strip_id', 'strip1')
     i = 0
-    while not stop_flag:
+    while not get_stop_flag(strip_id):
         i+=1
         for j in range(controller.numPixels):
-            if stop_flag:
+            if get_stop_flag(strip_id):
                 break
             condition = (i % 2) == (j % 2)
             color = controller.color_list[0] if condition else controller.color_list[1]
@@ -48,12 +54,13 @@ def flash(controller):
         time.sleep(controller.delay)
 
 def leap_frog(controller):
+    strip_id = getattr(controller, 'strip_id', 'strip1')
     num_pixels = controller.numPixels
     window_size = 5
 
-    while not stop_flag:
+    while not get_stop_flag(strip_id):
         for i in range(num_pixels):
-            if stop_flag:
+            if get_stop_flag(strip_id):
                 break
             # Clear the LED just before the current window
             clear_index = (i - 1) % num_pixels
@@ -80,10 +87,11 @@ def display_bits(strip, bits):
     strip.show()
 
 def roll_out(controller):
+    strip_id = getattr(controller, 'strip_id', 'strip1')
     num_pixels = controller.num_pixels
 
     for i in range(1, num_pixels):
-        if stop_flag:
+        if get_stop_flag(strip_id):
             break
 
         #light up the strip
@@ -93,7 +101,7 @@ def roll_out(controller):
         print("rolling out")
         #loop through and rollout
         for j in (range(1, i)):
-            if stop_flag:
+            if get_stop_flag(strip_id):
                 break
 
             controller.set_pixel(j, colors.OFF)
@@ -103,10 +111,11 @@ def roll_out(controller):
         print("rolled out")
 
 def warm_wheel(controller):
+    strip_id = getattr(controller, 'strip_id', 'strip1')
     num_pixels = controller.numPixels
     window_size = 5
 
-    while not stop_flag:
+    while not get_stop_flag(strip_id):
         for i in range(num_pixels):
             # Clear the LED just before the current window
             clear_index = (i - 1) % num_pixels
@@ -124,14 +133,15 @@ def warm_wheel(controller):
             time.sleep(controller.delay)
 
 def bouncing_window(controller):
+    strip_id = getattr(controller, 'strip_id', 'strip1')
     num_pixels = controller.numPixels
     direction = 1  # 1 for forward, -1 for backward
     position = 0
     window_size = 5
     print(num_pixels)
-    while not stop_flag:
+    while not get_stop_flag(strip_id):
         for _ in range(num_pixels - window_size + 1):
-            if stop_flag:
+            if get_stop_flag(strip_id):
                 break
             # Turn off all LEDs
             for i in range(num_pixels):

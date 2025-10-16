@@ -17,13 +17,14 @@ app = Flask(__name__)
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
 # LED strip configuration
-LED_COUNT = 120
-LED_PIN = 18
+LED_COUNT_STRIP1 = 120
+LED_PIN_STRIP1 = 18
+LED_COUNT_STRIP2 = 240
+LED_PIN_STRIP2 = 19
 LED_FREQ_HZ = 800000
 LED_DMA = 5
 LED_BRIGHTNESS = 255
 LED_INVERT = False
-LED_CHANNEL = 0
 
 logging.basicConfig(level=logging.INFO)
 
@@ -31,8 +32,9 @@ logging.basicConfig(level=logging.INFO)
 class StripControllerAdapter:
     """Adapter exposing controller-style helpers while sharing the PixelStrip instance."""
 
-    def __init__(self, pixel_strip: PixelStrip):
+    def __init__(self, pixel_strip: PixelStrip, strip_id="strip1"):
         self.strip = pixel_strip
+        self.strip_id = strip_id
         self.numPixels = self.strip.numPixels()
         self.num_pixels = self.numPixels
         self.color_list = [colors.RED, colors.GREEN, colors.BLUE]
@@ -70,107 +72,153 @@ class StripControllerAdapter:
         self.strip.show()
 
 
-# Initialize the LED strip
-strip = PixelStrip(
-    LED_COUNT,
-    LED_PIN,
+# Initialize LED strips
+strip1 = PixelStrip(
+    LED_COUNT_STRIP1,
+    LED_PIN_STRIP1,
     LED_FREQ_HZ,
     LED_DMA,
     LED_INVERT,
     LED_BRIGHTNESS,
-    LED_CHANNEL,
+    0,  # Channel 0
 )
-strip.begin()
-controller = StripControllerAdapter(strip)
+strip1.begin()
+
+strip2 = PixelStrip(
+    LED_COUNT_STRIP2,
+    LED_PIN_STRIP2,
+    LED_FREQ_HZ,
+    LED_DMA,
+    LED_INVERT,
+    LED_BRIGHTNESS,
+    1,  # Channel 1
+)
+strip2.begin()
+
+controller1 = StripControllerAdapter(strip1, "strip1")
+controller2 = StripControllerAdapter(strip2, "strip2")
+
+strips = {
+    "strip1": {"strip": strip1, "controller": controller1},
+    "strip2": {"strip": strip2, "controller": controller2}
+}
+
 current_settings = {
-    "colors": [colors.RED, colors.GREEN, colors.BLUE],
-    "delay": 500,
+    "strip1": {
+        "colors": [colors.RED, colors.GREEN, colors.BLUE],
+        "delay": 500,
+    },
+    "strip2": {
+        "colors": [colors.RED, colors.GREEN, colors.BLUE],
+        "delay": 500,
+    }
 }
 
-# Lock and job management
-effect_lock = Lock()
-current_effect = None
-current_thread = None
-
-# Effect runner
-jobs = {
-    "wheel": lambda: effects.color_wheel(controller),
-    "warm_wheel": lambda: effects.warm_wheel(controller),
-    "lime_green": lambda: effects.fill_strip(strip, colors.LIME_GREEN),
-    "flash": lambda: effects.flash(controller),
-    "leapfrog": lambda: effects.leap_frog(controller),
-    "bounce": lambda: effects.bouncing_window(controller),
-    "off": lambda: effects.fill_strip(strip, colors.OFF),
-    "race": lambda: light_race.race(strip),
-    "clock": lambda: clock_effects.clock(strip),
-    "clock2": lambda: clock_effects.clock2(strip),
-    "clock3": lambda: clock_effects.clock3(strip),
-    "clock4": lambda: clock_effects.clock4(strip),
-    "clock5": lambda: clock_effects.clock5(strip),
-    "clock6": lambda: clock_effects.clock6(strip),
-    "rollout": lambda: effects.roll_out(controller),
-    "allin": lambda: effects.allin(strip),
+# Lock and job management per strip
+effect_locks = {
+    "strip1": Lock(),
+    "strip2": Lock()
+}
+current_effects = {
+    "strip1": None,
+    "strip2": None
+}
+current_threads = {
+    "strip1": None,
+    "strip2": None
 }
 
+# Effect runners per strip
+def get_jobs(strip_id):
+    """Get job dictionary for a specific strip"""
+    strip_obj = strips[strip_id]["strip"]
+    controller = strips[strip_id]["controller"]
 
-def apply_settings():
-    controller.set_colors(current_settings["colors"])
-    controller.set_delay(current_settings["delay"])
+    return {
+        "wheel": lambda: effects.color_wheel(controller),
+        "warm_wheel": lambda: effects.warm_wheel(controller),
+        "lime_green": lambda: effects.fill_strip(strip_obj, colors.LIME_GREEN),
+        "flash": lambda: effects.flash(controller),
+        "leapfrog": lambda: effects.leap_frog(controller),
+        "bounce": lambda: effects.bouncing_window(controller),
+        "off": lambda: effects.fill_strip(strip_obj, colors.OFF),
+        "race": lambda: light_race.race(strip_obj),
+        "clock": lambda: clock_effects.clock(strip_obj, strip_id),
+        "clock2": lambda: clock_effects.clock2(strip_obj, strip_id),
+        "clock3": lambda: clock_effects.clock3(strip_obj, strip_id),
+        "clock4": lambda: clock_effects.clock4(strip_obj, strip_id),
+        "clock5": lambda: clock_effects.clock5(strip_obj, strip_id),
+        "clock6": lambda: clock_effects.clock6(strip_obj, strip_id),
+        "rollout": lambda: effects.roll_out(controller),
+        "allin": lambda: effects.allin(strip_obj),
+    }
 
 
-apply_settings()
+def apply_settings(strip_id):
+    """Apply settings to a specific strip"""
+    controller = strips[strip_id]["controller"]
+    controller.set_colors(current_settings[strip_id]["colors"])
+    controller.set_delay(current_settings[strip_id]["delay"])
 
 
-def reset_stop_flags():
-    effects.set_stop_flag(False)
-    clock_effects.set_stop_flag(False)
-    light_race.winner_event.clear()
+# Apply initial settings to both strips
+for strip_id in strips.keys():
+    apply_settings(strip_id)
 
 
-def stop_all_effects():
-    effects.set_stop_flag(True)
-    clock_effects.set_stop_flag(True)
-    light_race.winner_event.set()
+def reset_stop_flags(strip_id):
+    """Reset stop flags for a specific strip"""
+    effects.set_stop_flag(False, strip_id)
+    clock_effects.set_stop_flag(False, strip_id)
+    if strip_id == "strip1":  # Only clear race event for strip1
+        light_race.winner_event.clear()
 
-def stop_current_job():
-    global current_effect, current_thread
-    logging.info("Stopping active job")
-    if current_thread and current_thread.is_alive():
-        stop_all_effects()
-        current_thread.join()
 
-    reset_stop_flags()
+def stop_all_effects(strip_id):
+    """Stop all effects for a specific strip"""
+    effects.set_stop_flag(True, strip_id)
+    clock_effects.set_stop_flag(True, strip_id)
+    if strip_id == "strip1":  # Only set race event for strip1
+        light_race.winner_event.set()
 
-    with effect_lock:
-        current_effect = None
-        current_thread = None
+def stop_current_job(strip_id):
+    """Stop the current job for a specific strip"""
+    logging.info("Stopping active job for %s", strip_id)
+    if current_threads[strip_id] and current_threads[strip_id].is_alive():
+        stop_all_effects(strip_id)
+        current_threads[strip_id].join()
 
-def effect_runner(job_name, *args):
-    global current_effect, current_thread
+    reset_stop_flags(strip_id)
 
+    with effect_locks[strip_id]:
+        current_effects[strip_id] = None
+        current_threads[strip_id] = None
+
+def effect_runner(strip_id, job_name, *args):
+    """Run an effect on a specific strip"""
     def run_job():
-        global current_effect, current_thread
-        logging.info("Running job %s", job_name)
+        logging.info("Running job %s on %s", job_name, strip_id)
         try:
+            jobs = get_jobs(strip_id)
             job_callable = jobs[job_name]
             result = job_callable(*args)
             if inspect.isawaitable(result):
                 asyncio.run(result)
         except Exception:  # pragma: no cover - logged for debugging
-            logging.exception("Job %s failed", job_name)
+            logging.exception("Job %s failed on %s", job_name, strip_id)
         finally:
-            with effect_lock:
-                current_effect = None
-                current_thread = None
-            reset_stop_flags()
+            with effect_locks[strip_id]:
+                current_effects[strip_id] = None
+                current_threads[strip_id] = None
+            reset_stop_flags(strip_id)
 
-    stop_current_job()
-    reset_stop_flags()
+    stop_current_job(strip_id)
+    reset_stop_flags(strip_id)
 
-    with effect_lock:
-        current_effect = job_name
-        current_thread = Thread(target=run_job)
-        current_thread.start()
+    with effect_locks[strip_id]:
+        current_effects[strip_id] = job_name
+        current_threads[strip_id] = Thread(target=run_job)
+        current_threads[strip_id].start()
     
 
 @app.route("/", methods=["GET"])
@@ -194,6 +242,11 @@ def update_settings():
     global current_settings
 
     data = request.form
+    strip_id = data.get("strip_id", "strip1")
+
+    if strip_id not in strips:
+        return jsonify({"error": f"Invalid strip_id: {strip_id}"}), 400
+
     color_hex_values = [
         data.get("color1", "#ffffff"),
         data.get("color2", "#ff0000"),
@@ -208,17 +261,22 @@ def update_settings():
         b = int(value[4:6], 16)
         return Color(r, g, b)
 
-    current_settings = {
+    current_settings[strip_id] = {
         "colors": [hex_to_color(value) for value in color_hex_values],
         "delay": delay_ms,
     }
 
-    apply_settings()
+    apply_settings(strip_id)
 
-    return jsonify({"message": "Settings saved"}), 200
+    return jsonify({"message": f"Settings saved for {strip_id}"}), 200
 
 @app.route("/get-settings", methods=["GET"])
-def get_settings():
+def get_settings_route():
+    strip_id = request.args.get("strip_id", "strip1")
+
+    if strip_id not in strips:
+        return jsonify({"error": f"Invalid strip_id: {strip_id}"}), 400
+
     def color_to_hex(color_value):
         r = (color_value >> 16) & 0xFF
         g = (color_value >> 8) & 0xFF
@@ -226,42 +284,56 @@ def get_settings():
         return f"#{r:02x}{g:02x}{b:02x}"
 
     response = {
-        "colors": [color_to_hex(value) for value in current_settings["colors"]],
-        "delay": current_settings["delay"],
+        "strip_id": strip_id,
+        "colors": [color_to_hex(value) for value in current_settings[strip_id]["colors"]],
+        "delay": current_settings[strip_id]["delay"],
     }
     return jsonify(response), 200
 
 @app.route("/start", methods=["POST"])
 def start_effect():
-    global current_effect, current_thread
-
     data = request.json
+    strip_id = data.get("strip_id", "strip1")
     job_name = data.get("effect")
+
+    if strip_id not in strips:
+        return jsonify({"error": f"Invalid strip_id: {strip_id}"}), 400
+
+    jobs = get_jobs(strip_id)
     if job_name not in jobs:
         return jsonify({"error": f"Effect '{job_name}' does not exist"}), 404
 
     args = data.get("args", [])
-    effect_runner(job_name, *args)
-    print(f"started {job_name}")
-    return jsonify({"message": f"Effect '{job_name}' started"}), 200
+    effect_runner(strip_id, job_name, *args)
+    logging.info(f"Started {job_name} on {strip_id}")
+    return jsonify({"message": f"Effect '{job_name}' started on {strip_id}"}), 200
 
 @app.route("/stop", methods=["POST"])
 def stop_effect():
-    global current_effect, current_thread
+    data = request.json
+    strip_id = data.get("strip_id", "strip1")
 
-    if not current_thread or not current_thread.is_alive():
-        logging.warning("Stop requested with no active job")
-        return jsonify({"error": "No effect is currently running"}), 400
+    if strip_id not in strips:
+        return jsonify({"error": f"Invalid strip_id: {strip_id}"}), 400
 
-    stop_current_job()
-    return jsonify({"message": "Effect stopped"}), 200
+    if not current_threads[strip_id] or not current_threads[strip_id].is_alive():
+        logging.warning(f"Stop requested with no active job on {strip_id}")
+        return jsonify({"error": f"No effect is currently running on {strip_id}"}), 400
+
+    stop_current_job(strip_id)
+    return jsonify({"message": f"Effect stopped on {strip_id}"}), 200
 
 @app.route("/status", methods=["GET"])
 def status():
-    if not current_thread or not current_thread.is_alive():
-        return jsonify({"status": "idle"}), 200
+    strip_id = request.args.get("strip_id", "strip1")
 
-    return jsonify({"status": "running", "effect": current_effect}), 200
+    if strip_id not in strips:
+        return jsonify({"error": f"Invalid strip_id: {strip_id}"}), 400
+
+    if not current_threads[strip_id] or not current_threads[strip_id].is_alive():
+        return jsonify({"strip_id": strip_id, "status": "idle"}), 200
+
+    return jsonify({"strip_id": strip_id, "status": "running", "effect": current_effects[strip_id]}), 200
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0")
