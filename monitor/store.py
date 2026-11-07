@@ -117,6 +117,15 @@ class Store:
                       "host vitals %s → %s (disk %s%% free)" % (
                           hv_old.get("level"), hv_new["level"], hv_new.get("disk_free_pct")))
 
+        apps_before = {a["name"]: a for a in good.get("apps", [])}
+        for a in new.get("apps", []):
+            prev = apps_before.get(a["name"])
+            if prev is not None and prev["level"] != a["level"]:
+                msg = "%s: %s → %s" % (a["name"], prev["level"], a["level"])
+                if a.get("reason"):
+                    msg += " (%s)" % a["reason"]
+                self._add(label, _LEVEL.get(a["level"], "info"), msg, service=a["name"])
+
         before = {s["name"]: s for s in good.get("services", [])}
         for s in new.get("services", []):
             prev = before.get(s["name"])
@@ -157,6 +166,8 @@ class Store:
                     "uptime_min": good.get("uptime_min"),
                     "clock_skew_s": good.get("clock_skew_s"),
                     "services": good.get("services", []),
+                    "apps": good.get("apps", []),
+                    "addr": good.get("addr"),
                 })
             return {"now": _now(), "hosts": hosts, "last_event_id": self._next_id - 1}
 

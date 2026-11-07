@@ -1,7 +1,8 @@
 """Status feed: a tiny read-only HTTP server for the Raspberry Pi LED monitor.
 
 Runs on each always-on laptop (Windows, Python 3.12, standard library only): the HP and the Lenovo.
-GET /status.json returns task health, data freshness and host vitals.
+GET /status.json returns task health, data freshness, host vitals and whether the apps on the
+machine answer (the sports hub and its APIs on the HP).
 Read-only: it never starts, stops or changes anything.
 
     python status_server.py [--port 8740]
@@ -14,6 +15,9 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.error
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -39,6 +43,22 @@ SERVICES_BY_HOST = {
 }
 SERVICES = SERVICES_BY_HOST.get(os.environ.get("COMPUTERNAME", ""), {})
 
+# Apps that should answer an HTTP GET on this machine (checked from here, so loopback URLs):
+# (name, url, port the page may link to or None). A non-2xx answer or no answer is "bad".
+APPS_BY_HOST = {
+    "DESKTOP-06CD787": [  # HP: the shadow-run sports hub and the six APIs behind it
+        ("Sports hub", "http://127.0.0.1:8700/", 8700),
+        ("touchdown-scorers API", "http://127.0.0.1:8702/api/td/health", None),
+        ("nba-edges API", "http://127.0.0.1:8703/api/nba/health", None),
+        ("ncaab-edges API", "http://127.0.0.1:8704/api/ncaab/health", None),
+        ("nhl-edges API", "http://127.0.0.1:8705/api/nhl/health", None),
+        ("parlay-edges API", "http://127.0.0.1:8706/api/parlay/health", None),
+        ("cfb-edges API", "http://127.0.0.1:8707/api/cfb/health", None),
+    ],
+}
+APPS = APPS_BY_HOST.get(os.environ.get("COMPUTERNAME", ""), [])
+APP_TIMEOUT_S = 5  # the HP's disk is slow and a collector run can make an API take a few seconds
+
 # Task Scheduler result codes that are not failures
 RESULT_RUNNING = 267009
 RESULT_NEVER_RAN = 267011
@@ -59,7 +79,7 @@ Get-ScheduledTask | Where-Object { $names -contains $_.TaskName } | ForEach-Obje
 
 _lock = threading.Lock()
 _cache = {"at": 0.0, "body": b"{}"}
-_started = time.time()
+_started = time.monotonic()  # not the wall clock: a laptop that boots with a wrong clock steps it later
 
 
 def _parse(ts):
@@ -126,6 +146,32 @@ def classify(info, max_minutes, now):
     return "ok", ""
 
 
+def check_app(app):
+    """GET one app's URL. Returns {name, level ok|bad, reason, ms, link_port}."""
+    name, url, link_port = app
+    started = time.monotonic()
+    reason = ""
+    try:
+        with urllib.request.urlopen(url, timeout=APP_TIMEOUT_S) as resp:
+            if not 200 <= resp.status < 300:
+                reason = "HTTP %d" % resp.status
+    except urllib.error.HTTPError as exc:
+        reason = "HTTP %d" % exc.code
+    except Exception as exc:  # refused, timed out, reset: all just "not answering"
+        reason = str(getattr(exc, "reason", exc))[:100] or "no answer"
+    return {
+        "name": name, "level": "bad" if reason else "ok", "reason": reason,
+        "ms": round((time.monotonic() - started) * 1000), "link_port": link_port,
+    }
+
+
+def check_apps():
+    if not APPS:
+        return []
+    with ThreadPoolExecutor(max_workers=len(APPS)) as pool:
+        return list(pool.map(check_app, APPS))
+
+
 def build_status():
     now = datetime.now(timezone.utc)
     problems = []
@@ -161,15 +207,20 @@ def build_status():
     if problems:
         host_level = "warn" if host_level == "ok" else host_level
 
+    apps = check_apps()
     order = {"ok": 0, "idle": 0, "warn": 1, "bad": 2}
-    worst = max([host_level] + [s["level"] for s in services], key=lambda l: order[l])
+    worst = max([host_level] + [s["level"] for s in services] + [a["level"] for a in apps], key=lambda l: order[l])
+    attention = [s["name"] for s in services if s["level"] in ("warn", "bad")]
+    attention += [a["name"] for a in apps if a["level"] != "ok"]
     return {
         "host": os.environ.get("COMPUTERNAME", "unknown"),
         "time": now.isoformat(),  # the Pi compares this with its own clock
-        "uptime_min": round((time.time() - _started) / 60, 1),
+        "uptime_min": round((time.monotonic() - _started) / 60, 1),
         "overall": worst,
+        "reason": ("Needs attention: " + ", ".join(attention)) if attention else "",
         "host_vitals": {"level": host_level, "disk_free_pct": disk_free_pct, "problems": problems},
         "services": services,
+        "apps": apps,
     }
 
 

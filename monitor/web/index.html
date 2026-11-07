@@ -90,6 +90,10 @@ h2 { margin: 0; font-size: 17px; font-weight: 650; }
 .svc .s { color: var(--muted); font-size: 13px; grid-column: 2; }
 .svc.warn .s { color: var(--warn); }
 .svc.bad .s { color: var(--bad); }
+.applink { color: var(--info); text-decoration: none; }
+.applink:hover { text-decoration: underline; }
+.applink:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; border-radius: 3px; }
+.svc-title.spaced { margin-top: 16px; }
 .svc .t { color: var(--muted); font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; grid-row: 1 / span 2; grid-column: 3; }
 
 .feedcard { margin-top: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
@@ -215,6 +219,23 @@ function serviceRow(s) {
   return li;
 }
 
+function appRow(a, h) {
+  const li = el("li", "svc " + lvl(a.level));
+  li.append(el("span", "d"));
+  if (a.link_port && h.addr) {          // the hub is opened by IP address (see the hub's host rules)
+    const link = el("a", "n applink", a.name);
+    link.href = "http://" + h.addr + ":" + a.link_port + "/";
+    link.target = "_blank";
+    link.rel = "noopener";
+    li.append(link);
+  } else {
+    li.append(el("span", "n", a.name));
+  }
+  li.append(el("span", "t", a.level === "ok" ? a.ms + " ms" : ""));
+  if (a.level !== "ok") li.append(el("span", "s", "Not answering: " + (a.reason || "no reply")));  // healthy rows stay one line
+  return li;
+}
+
 function card(h) {
   const level = h.down ? "bad" : lvl(h.overall);
   const c = el("article", "card lvl-" + level);
@@ -241,7 +262,14 @@ function card(h) {
   );
   c.append(vit);
 
-  c.append(el("h3", "svc-title", "Scheduled tasks"));
+  if ((h.apps || []).length) {
+    c.append(el("h3", "svc-title", "Apps"));
+    const apps = el("ul", "svcs");
+    h.apps.forEach((a) => apps.append(appRow(a, h)));
+    c.append(apps);
+  }
+
+  c.append(el("h3", "svc-title" + ((h.apps || []).length ? " spaced" : ""), "Scheduled tasks"));
   if (!h.services.length) {
     c.append(el("p", "note", "No scheduled tasks reported yet. This laptop is reporting host vitals only."));
   } else {

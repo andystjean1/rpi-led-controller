@@ -10,6 +10,7 @@ Pass --url once per laptop; with none, it polls the HP and the Lenovo.
 import argparse
 import json
 import logging
+import socket
 import sys
 import threading
 import time
@@ -73,6 +74,10 @@ def poll_one(url, failures):
         return unreachable(str(exc)), failures
     skew = check_clock(status)
     status["clock_skew_s"] = skew
+    try:  # the address the page links to (apps like the hub are opened by IP, not by name)
+        status["addr"] = socket.gethostbyname(urlparse(url).hostname)
+    except (OSError, TypeError):
+        status["addr"] = None
     if skew is not None and abs(skew) > MAX_CLOCK_SKEW_S and status.get("overall") == "ok":
         status["overall"] = "warn"
         status["reason"] = "clock is off by %d s" % skew
