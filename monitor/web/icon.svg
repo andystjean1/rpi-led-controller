@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">
+  <title>Laptop monitor</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#202c3d"/>
+      <stop offset="1" stop-color="#0a0d12"/>
+    </linearGradient>
+  </defs>
+  <!-- Full-bleed square: iOS rounds the corners itself, and fills transparency with black. -->
+  <rect width="180" height="180" fill="url(#bg)"/>
+  <!-- laptop: lid and base -->
+  <rect x="32" y="40" width="116" height="78" rx="9" fill="#10161e" stroke="#e8ebf0" stroke-width="7"/>
+  <rect x="14" y="126" width="152" height="12" rx="6" fill="#e8ebf0"/>
+  <!-- heartbeat line, with a soft glow underneath -->
+  <polyline points="44,80 66,80 78,56 92,102 103,70 110,80 136,80" fill="none" stroke="#3ecf8e" stroke-opacity=".28" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="44,80 66,80 78,56 92,102 103,70 110,80 136,80" fill="none" stroke="#3ecf8e" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
