@@ -4,8 +4,8 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-User=pi
-WorkingDirectory=/home/pi/rpi-led-controller/monitor
+User=bananaman
+WorkingDirectory=/home/bananaman/hp-monitor
 ExecStart=/usr/bin/python3 poller.py
 Restart=always
 RestartSec=10
