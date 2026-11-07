@@ -11,12 +11,15 @@ import argparse
 import json
 import logging
 import sys
+import threading
 import time
 import urllib.request
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 import display
+import store
+import web
 
 DEFAULT_URLS = [
     "http://DESKTOP-06CD787.local:8740/status.json",  # HP
@@ -47,8 +50,11 @@ def unreachable(reason):
 
 
 def label_for(url):
-    """Short name for logs: the first part of the URL's hostname (DESKTOP-06CD787)."""
-    return (urlparse(url).hostname or url).split(".")[0]
+    """Short name for logs and the page: the first part of the URL's hostname (DESKTOP-06CD787).
+
+    urlparse lowercases hostnames; Windows computer names are uppercase, which store.NAMES uses.
+    """
+    return (urlparse(url).hostname or url).split(".")[0].upper()
 
 
 def poll_one(url, failures):
@@ -78,9 +84,21 @@ def main():
     ap.add_argument("--url", action="append", help="status feed URL; repeat for several laptops")
     ap.add_argument("--interval", type=int, default=30)
     ap.add_argument("--once", action="store_true", help="poll once, print the state, exit")
+    ap.add_argument("--web-port", type=int, default=8750, help="port for the monitor page")
+    ap.add_argument("--no-web", action="store_true", help="poll and log only, no page")
     args = ap.parse_args()
     urls = args.url or DEFAULT_URLS
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
+    # --once keeps its events in memory so a test poll never touches the saved feed
+    events = store.Store(path=None if args.once else store.EVENTS_FILE)
+    if not args.once and not args.no_web:
+        try:
+            server = web.make_server(events, args.web_port)
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+            log.info("monitor page on port %d", args.web_port)
+        except OSError as exc:  # keep polling even if the port is taken
+            log.error("could not start the page on port %d: %s", args.web_port, exc)
 
     failures = {u: 0 for u in urls}
     while True:
@@ -90,6 +108,7 @@ def main():
             if status is None:
                 ok = False  # a blip counts against --once, but is not displayed yet
                 continue
+            events.record(label_for(url), status)
             display.render(status, label_for(url))
             ok = ok and status["overall"] in ("ok", "idle")
         if args.once:
