@@ -1,0 +1,17 @@
+[Unit]
+Description=Laptop status poller and monitor page (port 8750)
+After=network-online.target
+Wants=network-online.target
+
+# User service: no sudo needed. Install with
+#   mkdir -p ~/.config/systemd/user && cp hp-monitor.user.service ~/.config/systemd/user/hp-monitor.service
+#   loginctl enable-linger $USER     # lets it start at boot and keep running after logout
+#   systemctl --user daemon-reload && systemctl --user enable --now hp-monitor
+[Service]
+WorkingDirectory=%h/hp-monitor
+ExecStart=/usr/bin/python3 poller.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
