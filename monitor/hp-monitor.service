@@ -1,0 +1,14 @@
+[Unit]
+Description=HP laptop status poller for the LED strip
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/rpi-led-controller/monitor
+ExecStart=/usr/bin/python3 poller.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
