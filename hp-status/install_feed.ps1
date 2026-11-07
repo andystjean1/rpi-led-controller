@@ -1,14 +1,17 @@
-# Installs the status feed on the HP laptop: copies status_server.py to C:\Projects\_status,
+# Installs the status feed on an always-on laptop: copies status_server.py to C:\Projects\_status,
 # opens port 8740 to the local subnet only, and registers a SYSTEM task that starts at boot.
-# HP only: aborts anywhere else.
-if ($env:COMPUTERNAME -ne 'DESKTOP-06CD787') { "ABORT: wrong machine"; exit 2 }
+# Guarded: aborts unless this machine's name matches -Computer (the HP is DESKTOP-06CD787,
+# the Lenovo is DESKTOP-7MO22GL).
+param([Parameter(Mandatory)][string]$Computer)
+if ($env:COMPUTERNAME -ne $Computer) { "ABORT: this is $env:COMPUTERNAME, not $Computer"; exit 2 }
 $ErrorActionPreference = 'Stop'
 
 $port = 8740
 $dir = 'C:\Projects\_status'
 $python = 'C:\Program Files\Python312\python.exe'
-$taskName = 'hp-status-feed'
+$taskName = 'status-feed'
 
+if (-not (Test-Path $python)) { "ABORT: $python not found"; exit 3 }
 New-Item -ItemType Directory -Force $dir | Out-Null
 Copy-Item (Join-Path $PSScriptRoot 'status_server.py') $dir -Force
 

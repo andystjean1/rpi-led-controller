@@ -1,6 +1,6 @@
-"""HP status feed: a tiny read-only HTTP server for the Raspberry Pi LED monitor.
+"""Status feed: a tiny read-only HTTP server for the Raspberry Pi LED monitor.
 
-Runs on the HP laptop (Windows, Python 3.12, standard library only).
+Runs on each always-on laptop (Windows, Python 3.12, standard library only): the HP and the Lenovo.
 GET /status.json returns task health, data freshness and host vitals.
 Read-only: it never starts, stops or changes anything.
 
@@ -20,17 +20,24 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 PROJECTS = r"C:\Projects"
 CACHE_SECONDS = 15
 
-# name -> (project folder holding data/, max minutes between runs or None for weekly tasks)
-SERVICES = {
-    "nba-edges-collect": ("nba-edges", 60),
-    "ncaab-edges-collect": ("ncaab-edges", 60),
-    "nhl-edges-collect": ("nhl-edges", 60),
-    "cfb-edges-collect": ("cfb-edges", 60),
-    "parlay-edges-build": ("parlay-edges", 60),
-    "touchdown-scorers-wed": ("touchdown-scorers", None),
-    "touchdown-scorers-thu": ("touchdown-scorers", None),
-    "touchdown-scorers-sun": ("touchdown-scorers", None),
+# Per machine (keyed by COMPUTERNAME): task name -> (project folder holding data/, max minutes
+# between runs or None for weekly tasks). A machine with an empty or missing entry still reports
+# host vitals, so a freshly built box shows up on the Pi before it runs anything. Add its tasks
+# here when it takes on a workload.
+SERVICES_BY_HOST = {
+    "DESKTOP-06CD787": {  # HP
+        "nba-edges-collect": ("nba-edges", 60),
+        "ncaab-edges-collect": ("ncaab-edges", 60),
+        "nhl-edges-collect": ("nhl-edges", 60),
+        "cfb-edges-collect": ("cfb-edges", 60),
+        "parlay-edges-build": ("parlay-edges", 60),
+        "touchdown-scorers-wed": ("touchdown-scorers", None),
+        "touchdown-scorers-thu": ("touchdown-scorers", None),
+        "touchdown-scorers-sun": ("touchdown-scorers", None),
+    },
+    "DESKTOP-7MO22GL": {},  # Lenovo: no workload yet
 }
+SERVICES = SERVICES_BY_HOST.get(os.environ.get("COMPUTERNAME", ""), {})
 
 # Task Scheduler result codes that are not failures
 RESULT_RUNNING = 267009
@@ -105,6 +112,12 @@ def classify(info, max_minutes, now):
         last = _parse(info["last_run"])
         if last is None:
             return "warn", "no last run time"
+        # The collectors run in a daily window (10:00 to about 23:00), so the gap overnight is
+        # normal. If the scheduler has its next run queued in the future, it is on schedule; only
+        # fall back to the age of the last run once that next run time has passed (machine was off).
+        next_run = _parse(info["next_run"])
+        if next_run and next_run > now:
+            return "ok", ""
         age = (now - last).total_seconds() / 60
         if age > max_minutes * 3:
             return "bad", "last ran %d min ago" % age
@@ -117,7 +130,7 @@ def build_status():
     now = datetime.now(timezone.utc)
     problems = []
     try:
-        by_name = {t["name"]: t for t in read_tasks()}
+        by_name = {t["name"]: t for t in read_tasks()} if SERVICES else {}
     except Exception as exc:  # report, don't crash: the Pi should see a degraded HP
         by_name = {}
         problems.append(str(exc))
