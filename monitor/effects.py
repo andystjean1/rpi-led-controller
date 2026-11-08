@@ -12,6 +12,8 @@ ctx keys:
   speed    1-10 from the phone
   laptops  {label: {"overall", "services": [[name, level]], "disk_free_pct", "bad": [names]}},
            or None when the poller's state file is stale or missing
+  claude   {"sessions": [{"id", "name", "state", "subs"}]} from Agent Town, or None when it is quiet
+  events   Claude tool calls since the previous frame: [{"s": session id, "k": kind}]
   state    dict that persists between frames (fire heat, rain drops, stars)
 """
 import math
@@ -299,10 +301,171 @@ def alert_overlay(cv, ctx):
     return alerting
 
 
+# ---------------------------------------------------------------- Claude Code activity
+#
+# ctx["claude"] is None when Agent Town has gone quiet (PC off or the town stopped), else
+# {"sessions": [{"id", "name", "state": working|waiting|idle, "subs"}], ...}; ctx["events"] lists the
+# tool calls since the last frame as {"s": session id, "k": kind}.
+
+KIND_RGB = {"edit": (255, 140, 0), "read": (0, 200, 255), "shell": (60, 255, 90), "web": (170, 90, 255),
+            "agent": (255, 60, 200), "mcp": (60, 110, 255), "other": (190, 190, 190), "fail": (255, 30, 30),
+            "prompt": (255, 255, 255), "done": (120, 255, 200), "wait": (255, 150, 0)}
+AMBER = (255, 150, 0)
+SESSION_RGB = [(0, 200, 255), (255, 90, 160), (150, 255, 60), (255, 200, 0), (170, 110, 255)]
+
+
+def plot(cv, x, y, rgb):
+    """Add a light at (x, y), rounding to the nearest pixel."""
+    r, c = int(round(y)), int(round(x))
+    if 0 <= r < ROWS and 0 <= c < COLS:
+        cv[r][c] = tuple(min(255, cv[r][c][i] + rgb[i]) for i in range(3))
+
+
+def no_claude(cv, ctx):
+    """Agent Town isn't reporting: one faint violet line breathing in the middle row."""
+    fill(cv, scale((140, 70, 220), 0.05 + 0.25 * pulse(ctx["t"], 0.3)), rows=[2])
+
+
+def lane_bands(n):
+    """Split all five rows between n lanes with no spare rows: 3 lanes -> 2,2,1 rows tall."""
+    if n == 2:
+        return [(0, 2), (3, ROWS)]  # keep a dark row between two lanes
+    base, extra = divmod(ROWS, n)
+    out, row = [], 0
+    for i in range(n):
+        h = base + (1 if i < extra else 0)
+        out.append((row, row + h))
+        row += h
+    return out
+
+
+def _lane_of(sessions, sid):
+    for i, s in enumerate(sessions):
+        if s["id"] == sid:
+            return i
+    return hash(sid) % len(sessions)
+
+
+def claude_lanes(cv, ctx):
+    """One lane per live Claude session. Each tool call sends a pulse along it, coloured by what the
+    tool does (orange edit, cyan read, green shell, purple web, magenta agent, blue MCP, red failure,
+    white = you sent a prompt). A session waiting on you breathes amber; subagents are purple dots at
+    the right-hand end."""
+    claude = ctx["claude"]
+    if claude is None:
+        return no_claude(cv, ctx)
+    sessions = claude["sessions"][:ROWS]
+    if not sessions:
+        return fill(cv, (14, 14, 26), rows=[2])
+    spans = lane_bands(len(sessions)) if len(sessions) > 1 else [(0, ROWS)]
+    pulses = ctx["state"].setdefault("lanes", [])
+    for ev in ctx["events"]:
+        pulses.append([_lane_of(sessions, ev["s"]), 0.0, ev["k"]])
+    speed = 28 + ctx["speed"] * 5
+    for i, s in enumerate(sessions):
+        a, b = spans[i]
+        if s["state"] == "waiting":
+            base = scale(AMBER, 0.2 + 0.5 * pulse(ctx["t"], 0.9))
+        else:
+            base = (0, 22, 30) if s["state"] == "working" else (8, 8, 14)
+        fill(cv, base, rows=range(a, b))
+        for j in range(min(s["subs"], 6)):
+            fill(cv, scale(KIND_RGB["agent"], 0.35 + 0.65 * pulse(ctx["t"] + j * 0.37, 1.6)),
+                 rows=range(a, b), cols=[COLS - 1 - 2 * j])
+    for p in pulses:
+        a, b = spans[min(p[0], len(spans) - 1)]
+        for tail in range(7):
+            c = int(p[1]) - tail
+            if 0 <= c < COLS:
+                fill(cv, scale(KIND_RGB[p[2]], (1 - tail / 7) ** 1.5), rows=range(a, b), cols=[c])
+        p[1] += ctx["dt"] * speed
+    pulses[:] = [p for p in pulses if p[1] < COLS + 7][-150:]
+
+
+def claude_drones(cv, ctx):
+    """Each session is a glowing drone drifting over the whole grid with a trail. Working drones
+    cruise; idle ones barely move. A tool call recolours the drone for a moment; a waiting drone
+    stops and pulses amber."""
+    claude = ctx["claude"]
+    if claude is None:
+        return no_claude(cv, ctx)
+    sessions = claude["sessions"][:len(SESSION_RGB)]
+    drones = ctx["state"].setdefault("drones", {})
+    for gone in set(drones) - {s["id"] for s in sessions}:
+        del drones[gone]
+    t, dt = ctx["t"], ctx["dt"]
+    for i, s in enumerate(sessions):
+        d = drones.setdefault(s["id"], {"x": 8.0 + 11 * i, "dir": 1 if i % 2 == 0 else -1, "ph": i * 1.9,
+                                        "y": 2.0, "trail": [], "kind": None, "kt": -99.0})
+        for ev in ctx["events"]:
+            if ev["s"] == s["id"]:
+                d["kind"], d["kt"] = ev["k"], t
+        waiting = s["state"] == "waiting"
+        cruise = (10 + ctx["speed"] * 2) if s["state"] == "working" else 2.5
+        if not waiting:
+            d["x"] += d["dir"] * cruise * dt
+            if d["x"] < 0 or d["x"] > COLS - 1:
+                d["dir"] = -d["dir"]
+                d["x"] = max(0.0, min(COLS - 1.0, d["x"]))
+            d["ph"] += dt * (2.2 if s["state"] == "working" else 0.7)
+            d["y"] = 2 + 1.9 * math.sin(d["ph"])
+        d["trail"] = (d["trail"] + [(d["x"], d["y"])])[-10:]
+        if waiting:
+            rgb = scale(AMBER, 0.3 + 0.7 * pulse(t, 1.1))
+        elif t - d["kt"] < 1.2:
+            rgb = KIND_RGB[d["kind"]]
+        else:
+            rgb = SESSION_RGB[i % len(SESSION_RGB)]
+        n = len(d["trail"])
+        for k, (x, y) in enumerate(d["trail"]):
+            plot(cv, x, y, scale(rgb, ((k + 1) / n) ** 2 * (1 if k == n - 1 else 0.6)))
+        for j in range(min(s["subs"], 4)):  # subagents orbit their session
+            ang = t * 4 + j * 1.6
+            plot(cv, d["x"] + 2.2 * math.cos(ang), d["y"] + 1.2 * math.sin(ang), scale(KIND_RGB["agent"], 0.8))
+
+
+def claude_meter(cv, ctx):
+    """Activity meter: the last 15 seconds of tool calls as a scrolling bar chart, newest on the
+    right. Bar height is calls in that quarter-second, colour is the kind of the latest call."""
+    claude = ctx["claude"]
+    if claude is None:
+        return no_claude(cv, ctx)
+    m = ctx["state"].setdefault("meter", {"bins": [(0, None)] * COLS, "acc": 0.0, "n": 0, "kind": None})
+    for ev in ctx["events"]:
+        m["n"] += 1
+        m["kind"] = ev["k"]
+    m["acc"] += ctx["dt"]
+    while m["acc"] >= 0.25:
+        m["acc"] -= 0.25
+        m["bins"] = (m["bins"] + [(m["n"], m["kind"])])[-COLS:]
+        m["n"], m["kind"] = 0, None
+    for c, (n, kind) in enumerate(m["bins"]):
+        if n == 0:
+            cv[ROWS - 1][c] = (10, 10, 20)
+            continue
+        rgb = scale(KIND_RGB.get(kind, KIND_RGB["other"]), 0.3 + 0.7 * c / COLS)
+        for r in range(ROWS - min(ROWS, n), ROWS):
+            cv[r][c] = rgb
+
+
+def waiting_overlay(cv, ctx):
+    """Over any other mode: amber bars along the top and bottom edges while a Claude session is
+    waiting on you (a permission prompt). Returns True when it is drawn."""
+    claude = ctx.get("claude")
+    if not claude or not any(s["state"] == "waiting" for s in claude["sessions"]):
+        return False
+    rgb = scale(AMBER, 0.15 + 0.85 * pulse(ctx["t"], 0.8))
+    for c in range(12, COLS - 12):
+        cv[0][c] = rgb
+        cv[ROWS - 1][c] = rgb
+    return True
+
+
 EFFECTS = {
     "solid": solid, "breathe": breathe, "rainbow": rainbow, "chase": chase, "plasma": plasma,
     "aurora": aurora, "wave": wave, "scanner": scanner, "twinkle": twinkle, "meteor": meteor,
     "fire": fire, "matrix": matrix,
 }
 MONITORS = {"monitor": monitor, "rack": rack, "vitals": vitals}
-MODES = {**EFFECTS, **MONITORS}
+CLAUDE = {"claude_lanes": claude_lanes, "claude_drones": claude_drones, "claude_meter": claude_meter}
+MODES = {**EFFECTS, **MONITORS, **CLAUDE}

@@ -2,8 +2,10 @@
 
 Reads STATE_FILE (written by display.py on every poll) and CONTROL_FILE (written by the phone page)
 and draws the chosen mode from effects.py onto a canvas, which `flush` maps onto the wiring.
-Monitor modes (monitor, rack, heartbeat, vitals) show each laptop's health; the show-off effects can
-be interrupted by a red alert overlay when a laptop is bad or down (control "alerts", default on).
+Monitor modes (monitor, rack, vitals) show each laptop's health; the show-off effects can be
+interrupted by a red alert overlay when a laptop is bad or down, and any mode by an amber one while a
+Claude session waits on the user (control "alerts", default on). The claude_* modes draw Claude Code
+activity that Agent Town pushes to web.py (CLAUDE_FILE).
 If the state file is older than STALE_S (poller dead) the monitor modes pulse blue.
 Needs root on a Pi 3 (PWM via /dev/vcio), so it runs as a system service: see install_strip.sh.
     python3 strip_daemon.py [--test]     # --test cycles red/green/blue and exits
@@ -80,7 +82,42 @@ def flush(strip, cv, layout):
                                                                 min(255, int(blue))))
 
 
-def render(strip, ctl, laptops, t, dt, state):
+CLAUDE_FILE = os.environ.get("STRIP_CLAUDE", "/home/bananaman/hp-monitor/claude_state.json")
+CLAUDE_STALE_S = 20  # Agent Town pushes at least every 4 s; silence this long means it is off
+
+
+class ClaudeFeed:
+    """Reads CLAUDE_FILE (written by web.py when Agent Town pushes) and hands out each tool-call
+    event once. History already in the file when the daemon starts is skipped."""
+
+    def __init__(self, path=CLAUDE_FILE):
+        self.path = path
+        self.last_seq = None
+        self.sessions = None  # None = Agent Town quiet
+
+    def poll(self):
+        """Returns (claude or None, events that are new since the last poll)."""
+        try:
+            with open(self.path) as f:
+                data = json.load(f)
+        except (OSError, ValueError):
+            data = None
+        if not isinstance(data, dict) or time.time() - data.get("written", 0) > CLAUDE_STALE_S:
+            self.sessions = None
+            return None, []
+        events = [e for e in data.get("events", []) if isinstance(e, dict)]
+        if self.last_seq is None:
+            self.last_seq = data.get("seq", 0)
+            new = []
+        else:
+            new = [e for e in events if e.get("seq", 0) > self.last_seq]
+            if new:
+                self.last_seq = max(e["seq"] for e in new)
+        self.sessions = [s for s in data.get("sessions", []) if isinstance(s, dict) and s.get("id")]
+        return {"sessions": self.sessions}, new
+
+
+def render(strip, ctl, laptops, t, dt, state, claude=None, events=()):
     """Draw one frame for the phone's chosen mode (unknown modes fall back to monitor)."""
     mode = ctl.get("mode", "monitor")
     layout = ctl.get("layout", {})
@@ -99,10 +136,14 @@ def render(strip, ctl, laptops, t, dt, state):
             speed = max(1, min(10, int(ctl.get("speed", 5))))
         except (TypeError, ValueError):
             rgb, speed = (255, 255, 255), 5
-        ctx = {"t": t, "dt": dt, "rgb": rgb, "speed": speed, "laptops": laptops, "state": state}
+        ctx = {"t": t, "dt": dt, "rgb": rgb, "speed": speed, "laptops": laptops, "state": state,
+               "claude": claude, "events": list(events)}
         effects.MODES.get(mode, effects.monitor)(cv, ctx)
-        if mode in effects.EFFECTS and ctl.get("alerts", True):
-            effects.alert_overlay(cv, ctx)  # the monitor modes show problems themselves
+        if ctl.get("alerts", True):
+            if mode in effects.EFFECTS:
+                effects.alert_overlay(cv, ctx)  # the monitor modes show laptop problems themselves
+            if mode not in ("claude_lanes", "claude_drones"):
+                effects.waiting_overlay(cv, ctx)  # those two already show a waiting session
     flush(strip, cv, layout)
 
 
@@ -133,8 +174,13 @@ def main():
 
     last_load, laptops, ctl, bright = 0.0, None, {}, LED_BRIGHTNESS
     last_frame, fx_state = time.time(), {}
+    feed, claude, events, last_claude = ClaudeFeed(), None, [], 0.0
     while True:
         now = time.time()
+        if now - last_claude > 0.1:  # Claude events are read faster so pulses start promptly
+            claude, fresh = feed.poll()
+            events.extend(fresh)
+            last_claude = now
         if now - last_load > 0.3:  # re-read the files ~3x a second, animate at 20 fps
             laptops, ctl, last_load = load(), load_control(), now
             try:
@@ -144,7 +190,8 @@ def main():
             if want != bright:
                 strip.setBrightness(want)
                 bright = want
-        render(strip, ctl, laptops, now, min(0.25, now - last_frame), fx_state)
+        render(strip, ctl, laptops, now, min(0.25, now - last_frame), fx_state, claude, events)
+        events = []
         last_frame = now
         strip.show()
         time.sleep(FRAME_S)

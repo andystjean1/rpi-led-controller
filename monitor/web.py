@@ -6,10 +6,12 @@
     /api/events    event feed; ?since=<id> returns only newer events (oldest first)
     /control       phone remote for the LED strip (web/control.html)
     /api/strip     GET the strip's control settings; POST JSON to change them (LAN only, no login)
+    /api/claude    POST Claude Code activity from Agent Town (sessions + tool-call events); GET for debugging
 Standard library only.
 """
 import json
 import os
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -28,7 +30,7 @@ STATIC = {
 
 CONTROL_FILE = os.environ.get("STRIP_CONTROL", os.path.expanduser("~/hp-monitor/strip_control.json"))
 # Keep in step with effects.MODES (the root daemon's list) plus off and calibrate.
-MODES = ("monitor", "rack", "vitals",
+MODES = ("monitor", "rack", "vitals", "claude_lanes", "claude_drones", "claude_meter",
          "solid", "rainbow", "chase", "breathe", "plasma", "aurora", "wave", "scanner",
          "twinkle", "meteor", "fire", "matrix", "off", "calibrate")
 ROWS, COLS = 5, 60
@@ -76,6 +78,45 @@ def update_control(patch):
     return ctl
 
 
+# Claude Code activity pushed from Agent Town on the Windows PC (see agent-town town/strip_bridge.py).
+# The root daemon reads this file; events carry a seq so it only reacts to new ones.
+CLAUDE_FILE = os.environ.get("STRIP_CLAUDE", os.path.expanduser("~/hp-monitor/claude_state.json"))
+CLAUDE_KINDS = ("edit", "read", "shell", "web", "agent", "mcp", "other", "fail", "prompt", "done", "wait")
+CLAUDE_STATES = ("working", "waiting", "idle")
+_claude_lock = threading.Lock()
+
+
+def read_claude():
+    try:
+        with open(CLAUDE_FILE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def update_claude(patch):
+    """Validate a push from Agent Town, append its events (new seq each), save atomically."""
+    sessions = []
+    for s in (patch.get("sessions") or [])[:8]:
+        if isinstance(s, dict):
+            sessions.append({"id": str(s.get("id", ""))[:64], "name": str(s.get("name", ""))[:30],
+                             "state": s.get("state") if s.get("state") in CLAUDE_STATES else "idle",
+                             "subs": max(0, min(20, int(s.get("subs") or 0)))})
+    with _claude_lock:
+        old = read_claude()
+        seq, events = int(old.get("seq", 0)), list(old.get("events", []))
+        for e in (patch.get("events") or [])[:50]:
+            if isinstance(e, dict) and e.get("k") in CLAUDE_KINDS:
+                seq = max(seq + 1, int(time.time() * 1000))
+                events.append({"seq": seq, "s": str(e.get("s", ""))[:64], "k": e["k"]})
+        state = {"written": time.time(), "seq": seq, "sessions": sessions, "events": events[-80:]}
+        tmp = CLAUDE_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(state, f)
+        os.replace(tmp, CLAUDE_FILE)
+    return state
+
+
 def make_server(store, port):
     class Handler(BaseHTTPRequestHandler):
         def _send(self, code, body, ctype, cache="no-store"):
@@ -118,6 +159,8 @@ def make_server(store, port):
                 self._send(200, body, "text/html; charset=utf-8")
             elif url.path == "/api/strip":
                 self._json(read_control())
+            elif url.path == "/api/claude":
+                self._json(read_claude())
             elif url.path == "/api/state":
                 self._json(store.snapshot())
             elif url.path == "/api/events":
@@ -130,15 +173,20 @@ def make_server(store, port):
                 self._send(404, b"not found", "text/plain")
 
         def do_POST(self):
-            if urlparse(self.path).path != "/api/strip":
+            path = urlparse(self.path).path
+            if path not in ("/api/strip", "/api/claude"):
                 self._send(404, b"not found", "text/plain")
                 return
             try:
-                size = min(int(self.headers.get("Content-Length", "0")), 4096)
+                size = min(int(self.headers.get("Content-Length", "0")), 16384)
                 patch = json.loads(self.rfile.read(size) or b"{}")
                 if not isinstance(patch, dict):
                     raise ValueError("expected an object")
-                self._json(update_control(patch))
+                if path == "/api/claude":
+                    update_claude(patch)
+                    self._json({"ok": True})
+                else:
+                    self._json(update_control(patch))
             except (ValueError, TypeError, OSError) as exc:
                 self._send(400, str(exc).encode(), "text/plain")
 
