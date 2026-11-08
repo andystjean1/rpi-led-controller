@@ -48,7 +48,9 @@ def read_control():
 def update_control(patch):
     """Validate a posted change, merge it into the saved settings (atomic write), return them."""
     ctl = read_control()
-    if patch.get("mode") in MODES:
+    if "mode" in patch:
+        if patch["mode"] not in MODES:
+            raise ValueError("unknown mode %r; reload the page" % (patch["mode"],))
         ctl["mode"] = patch["mode"]
     if "color" in patch:
         c = patch["color"]

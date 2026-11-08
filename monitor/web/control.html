@@ -223,14 +223,23 @@ function send(patch) {
   Object.assign(state, patch); Object.assign(pending, patch); draw();
   clearTimeout(timer);
   timer = setTimeout(async () => {
+    timer = null;
     const body = pending; pending = {};
     try {
       const r = await fetch("/api/strip", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!r.ok) throw new Error(await r.text());
       say("Sent");
-    } catch (e) { say("Couldn't reach the Pi: " + e.message, true); }
+      if (!timer && !Object.keys(pending).length) { state = await r.json(); draw(); }  // show what the Pi really has
+    } catch (e) { say("Not applied: " + e.message, true); refresh(); }
   }, 120);
 }
+
+// Pick up changes made elsewhere (another phone) and undo any tap the Pi refused.
+function refresh() {
+  if (timer || Object.keys(pending).length || document.hidden) return;
+  fetch("/api/strip").then(r => r.json()).then(s => { if (!timer) { state = s; draw(); } }).catch(() => {});
+}
+setInterval(refresh, 5000);
 
 $("bright").oninput = e => send({ brightness: +e.target.value });
 $("speed").oninput = e => send({ speed: +e.target.value });
