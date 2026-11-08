@@ -1,0 +1,111 @@
+"""Root daemon that shows the laptop monitor's state on the WS281x strip.
+
+Reads STATE_FILE (written by display.py on every poll) and animates:
+  the strip is split into one equal segment per laptop, in name order;
+  ok    steady dim green        warn  steady amber
+  bad   steady red, with the pixels for failing services blinking white at the segment's start
+  down  slow red pulse          (laptop unreachable)
+If the state file is older than STALE_S (poller dead) the whole strip pulses blue.
+Needs root on a Pi 3 (PWM via /dev/vcio), so it runs as a system service: see install_strip.sh.
+    python3 strip_daemon.py [--test]     # --test cycles red/green/blue and exits
+"""
+import argparse
+import json
+import math
+import os
+import signal
+import sys
+import time
+
+from rpi_ws281x import Color, PixelStrip
+
+STATE_FILE = os.environ.get("STRIP_STATE", "/home/bananaman/hp-monitor/strip_state.json")
+LED_COUNT = 120
+LED_PIN = 18
+LED_FREQ_HZ = 800000
+LED_DMA = 10
+LED_BRIGHTNESS = int(os.environ.get("STRIP_BRIGHTNESS", "80"))  # 0-255; keeps the supply happy
+STALE_S = 120
+FRAME_S = 0.05
+
+BASE = {"ok": (0, 90, 0), "warn": (200, 110, 0), "bad": (220, 0, 0), "down": (220, 0, 0)}
+
+
+def load():
+    try:
+        with open(STATE_FILE) as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return None
+    if time.time() - data.get("written", 0) > STALE_S:
+        return None
+    return data.get("laptops", {})
+
+
+def scaled(rgb, k):
+    return Color(*(int(c * k) for c in rgb))
+
+
+def frame(strip, laptops, t):
+    n = strip.numPixels()
+    if laptops is None:  # no fresh data: say so
+        k = 0.15 + 0.85 * (0.5 + 0.5 * math.sin(t * 2.0))
+        for i in range(n):
+            strip.setPixelColor(i, scaled((0, 40, 220), k))
+        return
+    labels = sorted(laptops)
+    if not labels:
+        labels = []
+    seg = n // max(len(labels), 1)
+    blink = int(t * 2) % 2 == 0
+    for idx, label in enumerate(labels):
+        info = laptops[label]
+        state = info.get("overall", "down")
+        rgb = BASE.get(state, BASE["down"])
+        k = 0.2 + 0.8 * (0.5 + 0.5 * math.sin(t * 1.5)) if state == "down" else 1.0
+        start = idx * seg
+        end = n if idx == len(labels) - 1 else start + seg
+        for i in range(start, end):
+            strip.setPixelColor(i, scaled(rgb, k))
+        if state in ("warn", "bad"):
+            for j in range(min(len(info.get("bad", [])), 8)):
+                strip.setPixelColor(start + j, Color(255, 255, 255) if blink else Color(0, 0, 0))
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--test", action="store_true")
+    args = ap.parse_args()
+
+    strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, False, LED_BRIGHTNESS, 0)
+    strip.begin()
+
+    def clear(*_):
+        for i in range(strip.numPixels()):
+            strip.setPixelColor(i, Color(0, 0, 0))
+        strip.show()
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, clear)
+    signal.signal(signal.SIGINT, clear)
+
+    if args.test:
+        for rgb in ((255, 0, 0), (0, 255, 0), (0, 0, 255)):
+            for i in range(strip.numPixels()):
+                strip.setPixelColor(i, Color(*rgb))
+            strip.show()
+            time.sleep(1.2)
+        clear()
+
+    last_load, laptops = 0.0, None
+    while True:
+        now = time.time()
+        if now - last_load > 1.0:  # re-read the file once a second, animate at 20 fps
+            laptops, last_load = load(), now
+        frame(strip, laptops, now)
+        strip.show()
+        time.sleep(FRAME_S)
+
+
+if __name__ == "__main__":
+    main()

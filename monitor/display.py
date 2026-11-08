@@ -7,23 +7,46 @@ DESKTOP-06CD787). `status` is that laptop's feed plus:
   host_vitals   {level, disk_free_pct, problems}
   clock_skew_s  laptop clock minus Pi clock, or None
 
-Until the strip is wired up this only logs state changes. To drive the strip, replace the body
-with calls into ledstrip.py / colors.py (a segment per laptop or service, a pulse for "down").
+The poller runs unprivileged, but the WS281x strip on a Pi 3 needs root. So this module only writes
+each laptop's state to STATE_FILE (atomically); `strip_daemon.py`, a root systemd service, reads that
+file and animates the strip. Every state change is also logged.
 """
+import json
 import logging
+import os
+import time
 
 log = logging.getLogger("display")
-_last = {}  # label -> last state, so only changes are logged
+
+STATE_FILE = os.environ.get("STRIP_STATE", os.path.expanduser("~/hp-monitor/strip_state.json"))
+_last = {}      # label -> last state, so only changes are logged
+_states = {}    # label -> {"overall": ..., "bad": [...], "at": epoch seconds}
+
+
+def _write():
+    tmp = STATE_FILE + ".tmp"
+    try:
+        with open(tmp, "w") as f:
+            json.dump({"written": time.time(), "laptops": _states}, f)
+        os.replace(tmp, STATE_FILE)
+    except OSError as exc:
+        log.warning("could not write %s: %s", STATE_FILE, exc)
 
 
 def render(status, label):
-    summary = {s["name"]: s["level"] for s in status.get("services", [])}
+    services = status.get("services", [])
+    bad = [f'{s["name"]}: {s["reason"] or s["level"]}' for s in services
+           if s["level"] in ("warn", "bad")]
+    _states[label] = {"overall": status["overall"], "bad": [s["name"] for s in services
+                                                            if s["level"] in ("warn", "bad")],
+                      "at": time.time()}
+    _write()  # every poll, so the daemon can tell the poller is alive
+
+    summary = {s["name"]: s["level"] for s in services}
     state = (status["overall"], tuple(sorted(summary.items())))
     if state == _last.get(label):
         return  # log only changes
     _last[label] = state
-    bad = [f'{s["name"]}: {s["reason"] or s["level"]}' for s in status.get("services", [])
-           if s["level"] in ("warn", "bad")]
     log.info("%s overall=%s %s%s", label, status["overall"], status.get("reason", ""),
              (" | " + "; ".join(bad)) if bad else "")
     for name, level in summary.items():
