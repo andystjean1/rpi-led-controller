@@ -202,8 +202,8 @@ TRACE = {"ok": (70, 255, 110), "idle": (70, 150, 255), "warn": (255, 170, 0), "b
 
 
 def monitor(cv, ctx):
-    """Health monitor: each laptop owns half the wall. The half is washed in its health colour and an
-    ECG trace sweeps across it, the way a bedside monitor draws one. Calm beat = ok, fast beat =
+    """Health monitor: each laptop owns half the wall and an ECG trace sweeps across it, the way a
+    bedside monitor draws one, in its health colour on a dark background. Calm beat = ok, fast beat =
     warn or bad, flat line = unreachable."""
     laptops = ctx["laptops"]
     if laptops is None:
@@ -215,13 +215,7 @@ def monitor(cv, ctx):
     for idx, label in enumerate(labels):
         state = laptops[label].get("overall", "down")
         start = idx * seg
-        if state == "down":
-            beat = [2]
-            wash = scale(LEVEL["down"], 0.1 + 0.2 * pulse(ctx["t"], 0.5))
-        else:
-            beat = BEAT_CALM if state in ("ok", "idle") else BEAT_FAST
-            wash = scale(LEVEL.get(state, LEVEL["warn"]), 0.3)
-        fill(cv, wash, cols=range(start, start + width))
+        beat = [2] if state == "down" else BEAT_CALM if state in ("ok", "idle") else BEAT_FAST
         trace = TRACE.get(state, TRACE["down"])
         prev = beat[0]
         for c in range(width):
@@ -231,7 +225,7 @@ def monitor(cv, ctx):
                 prev = row
                 continue
             k = 1 - 0.85 * behind / width
-            rgb = mix(scale(trace, k), (255, 255, 255), 0.4 * k ** 4)
+            rgb = scale(trace, k)  # pure health colour, fading along the tail
             for r in range(min(prev, row), max(prev, row) + 1):  # join the points into a line
                 cv[r][start + c] = rgb
             prev = row
