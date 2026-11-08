@@ -28,7 +28,7 @@ STATIC = {
 
 CONTROL_FILE = os.environ.get("STRIP_CONTROL", os.path.expanduser("~/hp-monitor/strip_control.json"))
 # Keep in step with effects.MODES (the root daemon's list) plus off and calibrate.
-MODES = ("monitor", "rack", "heartbeat", "vitals",
+MODES = ("monitor", "rack", "vitals",
          "solid", "rainbow", "chase", "breathe", "plasma", "aurora", "wave", "scanner",
          "twinkle", "meteor", "fire", "matrix", "off", "calibrate")
 ROWS, COLS = 5, 60

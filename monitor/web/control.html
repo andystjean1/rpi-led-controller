@@ -106,8 +106,8 @@ table.cal tr:first-child td { height: 18px; border: 0; background: none; }
 <script>
 const GROUPS = [
   ["Monitor", [
-    ["monitor", "Ambient", "glow per laptop"], ["rack", "Rack", "pixel per service"],
-    ["heartbeat", "Heartbeat", "ECG per laptop"], ["vitals", "Vitals", "health + disk bars"],
+    ["monitor", "Heartbeat", "ECG per laptop"], ["rack", "Rack", "block per service"],
+    ["vitals", "Vitals", "health + disk bars"],
   ]],
   ["Effects", [
     ["rainbow", "Rainbow", "cycling"], ["plasma", "Plasma", "swirl"], ["aurora", "Aurora", "northern lights"],
@@ -119,7 +119,7 @@ const GROUPS = [
 ];
 const USES_COLOR = ["solid", "chase", "breathe", "wave", "scanner", "twinkle", "meteor"];
 const USES_SPEED = ["rainbow", "chase", "breathe", "plasma", "aurora", "fire", "matrix", "meteor", "scanner",
-  "wave", "twinkle", "heartbeat"];
+  "wave", "twinkle", "monitor"];
 const EFFECT_IDS = GROUPS[1][1].map(m => m[0]);
 const ROWS = 5, COLS = 60;
 const COLORS = ["#ff0000", "#ff7a00", "#ffd000", "#00e060", "#00c8ff", "#3a5bff", "#a020ff", "#ff2fa0", "#ffffff", "#ff9a40", "#40ffd0", "#8040ff"];

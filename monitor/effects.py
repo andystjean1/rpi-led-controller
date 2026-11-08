@@ -193,24 +193,48 @@ def no_data(cv, ctx):
     fill(cv, scale((0, 40, 220), 0.15 + 0.85 * pulse(ctx["t"], 0.32)))
 
 
+# One heartbeat, as the row (0 = top, 4 = bottom) the trace sits on at each column: flat line, small
+# P bump, Q dip, tall R spike, S dip, then the T bump.
+BEAT_CALM = [2, 2, 2, 1, 1, 2, 3, 0, 4, 2, 2, 1, 1, 1, 2, 2]
+BEAT_FAST = [2, 1, 2, 3, 0, 4, 2, 1, 1, 2]
+TRACE = {"ok": (70, 255, 110), "idle": (70, 150, 255), "warn": (255, 170, 0), "bad": (255, 40, 40),
+         "down": (255, 0, 0)}
+
+
 def monitor(cv, ctx):
-    """Ambient health: each laptop owns a half of the wall and glows its colour."""
+    """Health monitor: each laptop owns half the wall. The half is washed in its health colour and an
+    ECG trace sweeps across it, the way a bedside monitor draws one. Calm beat = ok, fast beat =
+    warn or bad, flat line = unreachable."""
     laptops = ctx["laptops"]
     if laptops is None:
         return no_data(cv, ctx)
     labels = sorted(laptops)
     seg = COLS // max(len(labels), 1)
-    blink = int(ctx["t"] * 2) % 2 == 0
+    width = seg - 1  # the last column of each half stays dark as a divider
+    head = (ctx["t"] * (8 + ctx["speed"] * 2)) % width
     for idx, label in enumerate(labels):
-        info = laptops[label]
-        state = info.get("overall", "down")
-        k = 0.2 + 0.8 * pulse(ctx["t"], 0.24) if state == "down" else 1.0
+        state = laptops[label].get("overall", "down")
         start = idx * seg
-        end = COLS if idx == len(labels) - 1 else start + seg
-        fill(cv, scale(LEVEL.get(state, LEVEL["down"]), k), cols=range(start, end))
-        if state in ("warn", "bad"):  # one white pip per failing service, blinking
-            for j in range(min(len(info.get("bad", [])), 8)):
-                cv[0][start + j] = (255, 255, 255) if blink else BLACK
+        if state == "down":
+            beat = [2]
+            wash = scale(LEVEL["down"], 0.1 + 0.2 * pulse(ctx["t"], 0.5))
+        else:
+            beat = BEAT_CALM if state in ("ok", "idle") else BEAT_FAST
+            wash = scale(LEVEL.get(state, LEVEL["warn"]), 0.3)
+        fill(cv, wash, cols=range(start, start + width))
+        trace = TRACE.get(state, TRACE["down"])
+        prev = beat[0]
+        for c in range(width):
+            row = beat[c % len(beat)]
+            behind = (head - c) % width  # 0 at the sweep head, growing back along the trace
+            if behind > width - 3:  # the gap just ahead of the head is erased
+                prev = row
+                continue
+            k = 1 - 0.85 * behind / width
+            rgb = mix(scale(trace, k), (255, 255, 255), 0.4 * k ** 4)
+            for r in range(min(prev, row), max(prev, row) + 1):  # join the points into a line
+                cv[r][start + c] = rgb
+            prev = row
 
 
 def rack(cv, ctx):
@@ -233,33 +257,6 @@ def rack(cv, ctx):
             if level == "bad" and not blink:
                 rgb = scale(rgb, 0.25)
             fill(cv, rgb, rows=range(a, b), cols=range(2 + 4 * k, 5 + 4 * k))
-
-
-def heartbeat(cv, ctx):
-    """An ECG sweep per laptop: the trace spikes while healthy, beats faster when unwell, and goes
-    flat and dim red when the laptop is unreachable."""
-    if ctx["laptops"] is None:
-        return no_data(cv, ctx)
-    head = (ctx["t"] * (6 + ctx["speed"] * 3)) % COLS
-    for info, a, b in _each(ctx):
-        state = info.get("overall", "down")
-        rgb = LEVEL.get(state, LEVEL["down"])
-        base = (b - 1) - (b - 1 - a) // 2
-        period = 20 if state in ("ok", "idle") else 12
-        for c in range(COLS):
-            k = max(0.0, 1 - ((head - c) % COLS) / (COLS * 0.9))
-            if state == "down":
-                cv[base][c] = scale(rgb, 0.15 + 0.15 * pulse(ctx["t"], 0.5))
-                continue
-            k = 0.12 + 0.88 * k
-            if c % period == 0:
-                rows = range(a, base + 1)
-            elif c % period == 1:
-                rows = range(base, b)
-            else:
-                rows = [base]
-            for r in rows:
-                cv[r][c] = scale(rgb, k)
 
 
 def vitals(cv, ctx):
@@ -313,5 +310,5 @@ EFFECTS = {
     "aurora": aurora, "wave": wave, "scanner": scanner, "twinkle": twinkle, "meteor": meteor,
     "fire": fire, "matrix": matrix,
 }
-MONITORS = {"monitor": monitor, "rack": rack, "heartbeat": heartbeat, "vitals": vitals}
+MONITORS = {"monitor": monitor, "rack": rack, "vitals": vitals}
 MODES = {**EFFECTS, **MONITORS}
