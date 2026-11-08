@@ -37,15 +37,37 @@ SAY_STYLES = ("plain", "rainbow", "flash", "wave", "shake", "fire", "disco", "si
 ROWS, COLS = 5, 60
 LAYOUT_KEYS = ("flip_rows", "serpentine", "reverse")
 DEFAULT_CONTROL = {"mode": "monitor", "color": [255, 255, 255], "brightness": 80, "speed": 5,
-                   "alerts": True, "text": "", "say": None, "cal": [], "layout": {k: False for k in LAYOUT_KEYS}}
+                   "alerts": True, "text": "", "text_style": "plain", "text_static": False, "text_until": 0,
+                   "prev_mode": "monitor", "say": None, "cal": [], "layout": {k: False for k in LAYOUT_KEYS}}
+
+
+def _restore_target(ctl):
+    """The mode to go back to when a banner ends: whatever was running before it."""
+    prev = ctl.get("prev_mode")
+    return prev if prev in MODES and prev != "text" else "monitor"
+
+
+def _save(ctl):
+    tmp = CONTROL_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(ctl, f)
+    os.replace(tmp, CONTROL_FILE)
 
 
 def read_control():
     try:
         with open(CONTROL_FILE) as f:
-            return {**DEFAULT_CONTROL, **json.load(f)}
+            ctl = {**DEFAULT_CONTROL, **json.load(f)}
     except (OSError, ValueError):
         return dict(DEFAULT_CONTROL)
+    until = ctl.get("text_until")
+    if ctl.get("mode") == "text" and until and time.time() > until:  # a timed banner has run out
+        ctl["mode"], ctl["text_until"] = _restore_target(ctl), 0
+        try:
+            _save(ctl)
+        except OSError:
+            pass
+    return ctl
 
 
 def update_control(patch):
@@ -54,7 +76,11 @@ def update_control(patch):
     if "mode" in patch:
         if patch["mode"] not in MODES:
             raise ValueError("unknown mode %r; reload the page" % (patch["mode"],))
+        if patch["mode"] == "text" and ctl["mode"] != "text":
+            ctl["prev_mode"] = ctl["mode"]  # so the banner can hand the wall back
         ctl["mode"] = patch["mode"]
+    if patch.get("restore") and ctl["mode"] == "text":
+        ctl["mode"], ctl["text_until"] = _restore_target(ctl), 0
     if "color" in patch:
         c = patch["color"]
         if isinstance(c, list) and len(c) == 3:
@@ -71,6 +97,13 @@ def update_control(patch):
         ctl["alerts"] = bool(patch["alerts"])
     if "text" in patch:
         ctl["text"] = str(patch["text"])[:160]
+        # a banner lasts until changed, unless it was sent with a duration in seconds
+        seconds = max(0, min(86400, int(patch.get("text_duration") or 0)))
+        ctl["text_until"] = time.time() + seconds if seconds else 0
+    if "text_style" in patch:
+        ctl["text_style"] = patch["text_style"] if patch["text_style"] in SAY_STYLES else "plain"
+    if "text_static" in patch:
+        ctl["text_static"] = bool(patch["text_static"])
     if isinstance(patch.get("say"), dict) and str(patch["say"].get("text", "")).strip():
         say = patch["say"]
         rgb = say.get("rgb") if isinstance(say.get("rgb"), list) and len(say["rgb"]) == 3 else ctl["color"]
@@ -83,10 +116,7 @@ def update_control(patch):
     if "speed" in patch:
         ctl["speed"] = max(1, min(10, int(patch["speed"])))
     ctl["changed"] = time.time()
-    tmp = CONTROL_FILE + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(ctl, f)
-    os.replace(tmp, CONTROL_FILE)
+    _save(ctl)
     return ctl
 
 

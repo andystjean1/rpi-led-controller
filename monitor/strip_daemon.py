@@ -117,9 +117,20 @@ class ClaudeFeed:
         return {"sessions": self.sessions}, new
 
 
+def effective_mode(ctl):
+    """The control file's mode, except that a timed banner which has run out gives the wall back
+    to the mode it interrupted (web.py also writes that change back to the file when it next reads)."""
+    mode = ctl.get("mode", "monitor")
+    until = ctl.get("text_until")
+    if mode == "text" and isinstance(until, (int, float)) and until and time.time() > until:
+        prev = ctl.get("prev_mode")
+        return prev if isinstance(prev, str) and prev != "text" else "monitor"
+    return mode
+
+
 def render(strip, ctl, laptops, t, dt, state, claude=None, events=()):
     """Draw one frame for the phone's chosen mode (unknown modes fall back to monitor)."""
-    mode = ctl.get("mode", "monitor")
+    mode = effective_mode(ctl)
     layout = ctl.get("layout", {})
     cv = effects.new()
     if mode == "calibrate":
@@ -137,7 +148,8 @@ def render(strip, ctl, laptops, t, dt, state, claude=None, events=()):
         except (TypeError, ValueError):
             rgb, speed = (255, 255, 255), 5
         ctx = {"t": t, "dt": dt, "rgb": rgb, "speed": speed, "laptops": laptops, "state": state,
-               "claude": claude, "events": list(events), "text": ctl.get("text", ""), "say": ctl.get("say")}
+               "claude": claude, "events": list(events), "text": ctl.get("text", ""), "say": ctl.get("say"),
+               "text_style": ctl.get("text_style"), "text_static": ctl.get("text_static")}
         effects.MODES.get(mode, effects.monitor)(cv, ctx)
         if ctl.get("alerts", True):
             if mode in effects.EFFECTS:

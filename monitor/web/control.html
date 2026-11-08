@@ -42,6 +42,8 @@ button.mode small { display: block; font-weight: 400; font-size: 11px; color: va
 .row label { width: 84px; color: var(--muted); font-size: 14px; }
 .row output { width: 34px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
 input[type=range] { flex: 1; min-height: 36px; accent-color: var(--accent); }
+select { flex: 1; min-height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--raised);
+  color: var(--text); font: inherit; padding: 0 10px; }
 input[type=text] { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--raised);
   color: var(--text); font: inherit; padding: 0 12px; }
 input[type=color] { width: 100%; height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--raised); padding: 2px; }
@@ -76,11 +78,15 @@ table.cal tr:first-child td { height: 18px; border: 0; background: none; }
   <section>
     <h2>Message</h2>
     <input type="text" id="msg" maxlength="160" placeholder="Type something to show on the wall" autocomplete="off" enterkeyhint="send">
+    <div class="row"><label for="msgStyle">Style</label>
+      <select id="msgStyle"></select></div>
+    <label class="chk"><input type="checkbox" id="msgStatic"> Hold short banners still (no scrolling)</label>
     <div class="btns">
       <button id="sayOnce">Scroll once</button>
-      <button id="sayBanner">Banner (loops)</button>
+      <button id="sayBanner">Banner</button>
+      <button id="bannerBack">End banner</button>
     </div>
-    <p class="hint">Scroll once plays over whatever is running, in the chosen color. Banner switches to the Banner mode and repeats.</p>
+    <p class="hint">Scroll once plays over whatever is running, in the chosen color and style. Banner takes over the wall until you end it, then the previous mode comes back. Type :heart: :smile: :star: :skull: :ghost: :cat: :rocket: :bolt: :check: :x: for icons.</p>
   </section>
 
   <section id="colorSec">
@@ -123,7 +129,7 @@ const GROUPS = [
   ]],
   ["Claude", [
     ["claude_lanes", "Lanes", "pulse per tool call"], ["claude_drones", "Drones", "one per session"],
-    ["claude_meter", "Meter", "activity chart"],
+    ["claude_meter", "Blaze", "fire grows with work"],
   ]],
   ["Effects", [
     ["rainbow", "Rainbow", "cycling"], ["plasma", "Plasma", "swirl"], ["aurora", "Aurora", "northern lights"],
@@ -259,11 +265,16 @@ $("bright").oninput = e => send({ brightness: +e.target.value });
 $("speed").oninput = e => send({ speed: +e.target.value });
 $("picker").oninput = e => send({ color: rgb(e.target.value), mode: USES_COLOR.includes(state.mode) ? state.mode : "solid" });
 $("alerts").onchange = e => send({ alerts: e.target.checked });
-$("sayOnce").onclick = () => { const t = $("msg").value.trim(); if (t) send({ say: { text: t, rgb: state.color } }); };
-$("sayBanner").onclick = () => { const t = $("msg").value.trim(); if (t) send({ text: t, mode: "text" }); };
+const STYLES = ["plain", "rainbow", "flash", "wave", "shake", "fire", "disco", "siren", "sparkle"];
+$("msgStyle").innerHTML = STYLES.map(s => "<option>" + s + "</option>").join("");
+$("sayOnce").onclick = () => { const t = $("msg").value.trim(); if (t) send({ say: { text: t, rgb: state.color, style: $("msgStyle").value } }); };
+$("sayBanner").onclick = () => { const t = $("msg").value.trim();
+  if (t) send({ text: t, mode: "text", text_style: $("msgStyle").value, text_static: $("msgStatic").checked }); };
+$("bannerBack").onclick = () => send({ restore: true });
 $("msg").onkeydown = e => { if (e.key === "Enter") $("sayOnce").click(); };
 
-fetch("/api/strip").then(r => r.json()).then(s => { state = s; $("msg").value = s.text || ""; draw(); })
+fetch("/api/strip").then(r => r.json()).then(s => { state = s; $("msg").value = s.text || ""; $("msgStyle").value = s.text_style || "plain";
+  $("msgStatic").checked = !!s.text_static; draw(); })
   .catch(() => say("Couldn't load settings from the Pi", true));
 </script>
 </body>

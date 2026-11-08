@@ -14,7 +14,7 @@ ctx keys:
            or None when the poller's state file is stale or missing
   claude   {"sessions": [{"id", "name", "state", "subs"}]} from Agent Town, or None when it is quiet
   events   Claude tool calls since the previous frame: [{"s": session id, "k": kind}]
-  text     the banner string for the text mode
+  text     the banner string for the text mode (+ text_style, text_static)
   say      {"text", "rgb", "id"}: a one-shot message to scroll over any mode
   state    dict that persists between frames (fire heat, rain drops, stars)
 """
@@ -426,28 +426,46 @@ def claude_drones(cv, ctx):
             plot(cv, d["x"] + 2.2 * math.cos(ang), d["y"] + 1.2 * math.sin(ang), scale(KIND_RGB["agent"], 0.8))
 
 
+def claude_level(ctx, m):
+    """How hard Claude is working, 0..1, eased so it surges quickly and dies down slowly. Built from
+    the sessions that are mid-turn plus a smoothed tool-calls-per-second (about 1.4 a second, or a
+    few busy sessions, is full blast)."""
+    dt = ctx["dt"]
+    working = sum(1 for s in ctx["claude"]["sessions"] if s["state"] == "working")
+    m["rate"] = m["rate"] * math.exp(-dt / 3.0) + len(ctx["events"]) / 3.0
+    target = min(1.0, 0.12 * min(working, 3) + m["rate"] / 1.4)
+    m["level"] += (target - m["level"]) * (1 - math.exp(-dt / (0.35 if target > m["level"] else 1.8)))
+    return m["level"]
+
+
 def claude_meter(cv, ctx):
-    """Activity meter: the last 15 seconds of tool calls as a scrolling bar chart, newest on the
-    right. Bar height is calls in that quarter-second, colour is the kind of the latest call."""
-    claude = ctx["claude"]
-    if claude is None:
+    """Blaze: a fire that grows with Claude's workload. Idle is a few embers; one session mid-turn
+    is a modest flame in the middle; a flurry of tool calls fills the wall with tall, white-hot
+    flames. Every tool call also throws a flare somewhere along the bottom."""
+    if ctx["claude"] is None:
         return no_claude(cv, ctx)
-    m = ctx["state"].setdefault("meter", {"bins": [(0, None)] * COLS, "acc": 0.0, "n": 0, "kind": None})
-    for ev in ctx["events"]:
-        m["n"] += 1
-        m["kind"] = ev["k"]
-    m["acc"] += ctx["dt"]
-    while m["acc"] >= 0.25:
-        m["acc"] -= 0.25
-        m["bins"] = (m["bins"] + [(m["n"], m["kind"])])[-COLS:]
-        m["n"], m["kind"] = 0, None
-    for c, (n, kind) in enumerate(m["bins"]):
-        if n == 0:
-            cv[ROWS - 1][c] = (10, 10, 20)
-            continue
-        rgb = scale(KIND_RGB.get(kind, KIND_RGB["other"]), 0.3 + 0.7 * c / COLS)
-        for r in range(ROWS - min(ROWS, n), ROWS):
-            cv[r][c] = rgb
+    m = ctx["state"].setdefault("blaze", {"heat": [[0.0] * COLS for _ in range(ROWS)], "rate": 0.0, "level": 0.0})
+    lv = claude_level(ctx, m)
+    heat, last = m["heat"], ROWS - 1
+    for _ in ctx["events"]:  # a flare per tool call
+        c0 = random.randrange(COLS)
+        for c in range(max(0, c0 - 2), min(COLS, c0 + 3)):
+            heat[last][c] = 1.0
+    width = 0.12 + 0.88 * lv  # fuel spreads from the middle outwards as the level rises
+    for c in range(COLS):
+        w = max(0.0, min(1.0, (1 - abs(c - (COLS - 1) / 2) / (COLS / 2 * width)) * 2.2))  # flat-topped
+        heat[last][c] = max(heat[last][c] * 0.82, w * (0.25 + 0.75 * lv) * random.uniform(0.5, 1.0))
+    cool = 0.38 - 0.28 * lv  # flames climb higher the less they cool
+    for r in range(last):
+        for c in range(COLS):
+            below = (heat[r + 1][(c - 1) % COLS] + heat[r + 1][c] * 2 + heat[r + 1][(c + 1) % COLS]) / 4
+            heat[r][c] = max(0.0, below - random.uniform(0.3, 1.0) * cool)
+    gain = 0.55 + 0.75 * lv  # and burn brighter and whiter
+    for r in range(ROWS):
+        for c in range(COLS):
+            h = min(1.3, heat[r][c] * gain)
+            cv[r][c] = (int(min(255, h * 400)), int(max(0, min(255, (h - 0.35) * 300))),
+                        int(max(0, min(255, (h - 0.9) * 700))))
 
 
 def waiting_overlay(cv, ctx):
@@ -570,10 +588,17 @@ def _say_background(cv, style, t):
 
 
 def banner(cv, ctx):
-    """The banner text from the phone, scrolling round and round."""
+    """The banner text, in the chosen style: scrolling round and round, or held still and centred
+    (text_static) when it fits on the wall."""
     cols = text_columns(ctx.get("text") or "HELLO")
-    offset = int(ctx["t"] * (8 + ctx["speed"] * 3)) % (len(cols) + COLS)
-    _draw_text(cv, cols, COLS - offset, tuple(ctx["rgb"]), "plain", ctx["t"])
+    style = ctx.get("text_style") if ctx.get("text_style") in SAY_STYLES else "plain"
+    _say_background(cv, style, ctx["t"])
+    width = len(cols) - 1  # the last column is only the gap after the final letter
+    if ctx.get("text_static") and width <= COLS:
+        x0 = (COLS - width) // 2
+    else:
+        x0 = COLS - int(ctx["t"] * (8 + ctx["speed"] * 3)) % (len(cols) + COLS)
+    _draw_text(cv, cols, x0, tuple(ctx["rgb"]), style, ctx["t"])
 
 
 def say_overlay(cv, ctx):
