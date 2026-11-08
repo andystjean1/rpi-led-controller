@@ -21,12 +21,17 @@ STATIC = {
     "/apple-touch-icon.png": ("apple-touch-icon.png", "image/png"),
     "/apple-touch-icon-precomposed.png": ("apple-touch-icon.png", "image/png"),
     "/icon.svg": ("icon.svg", "image/svg+xml"),
+    "/strip-touch-icon.png": ("strip-touch-icon.png", "image/png"),
+    "/strip-icon.svg": ("strip-icon.svg", "image/svg+xml"),
 }
 
 
 CONTROL_FILE = os.environ.get("STRIP_CONTROL", os.path.expanduser("~/hp-monitor/strip_control.json"))
-MODES = ("monitor", "solid", "rainbow", "chase", "breathe", "off")
-DEFAULT_CONTROL = {"mode": "monitor", "color": [255, 255, 255], "brightness": 80, "speed": 5}
+MODES = ("monitor", "solid", "rainbow", "chase", "breathe", "off", "calibrate")
+ROWS, COLS = 5, 60
+LAYOUT_KEYS = ("flip_rows", "serpentine", "reverse")
+DEFAULT_CONTROL = {"mode": "monitor", "color": [255, 255, 255], "brightness": 80, "speed": 5,
+                   "cal": [], "layout": {k: False for k in LAYOUT_KEYS}}
 
 
 def read_control():
@@ -47,7 +52,13 @@ def update_control(patch):
         if isinstance(c, list) and len(c) == 3:
             ctl["color"] = [max(0, min(255, int(v))) for v in c]
     if "brightness" in patch:
-        ctl["brightness"] = max(1, min(200, int(patch["brightness"])))
+        ctl["brightness"] = max(1, min(120, int(patch["brightness"])))
+    if "cal" in patch and isinstance(patch["cal"], list):
+        ctl["cal"] = [[int(r), int(c)] for r, c in patch["cal"][:ROWS * COLS]
+                      if 0 <= int(r) < ROWS and 0 <= int(c) < COLS]
+    if isinstance(patch.get("layout"), dict):
+        ctl["layout"] = {**ctl.get("layout", {}),
+                         **{k: bool(v) for k, v in patch["layout"].items() if k in LAYOUT_KEYS}}
     if "speed" in patch:
         ctl["speed"] = max(1, min(10, int(patch["speed"])))
     ctl["changed"] = time.time()

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500">
+  <defs>
+    <radialGradient id="glow">
+      <stop offset="0" stop-color="#fff" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="500" height="500" fill="#0b1020"/>
+  <!-- 5 strips x 8 pixels, hue sweeping along each strip and shifting row to row -->
+  <g>
+    <!-- row 1 -->
+    <circle cx="80" cy="90" r="24" fill="#ff3b4a"/><circle cx="130" cy="90" r="24" fill="#ff7a1a"/><circle cx="180" cy="90" r="24" fill="#ffc21a"/><circle cx="230" cy="90" r="24" fill="#6be04a"/><circle cx="280" cy="90" r="24" fill="#1ad6c0"/><circle cx="330" cy="90" r="24" fill="#2f8cff"/><circle cx="380" cy="90" r="24" fill="#8a4dff"/><circle cx="430" cy="90" r="24" fill="#e04dd0"/>
+    <!-- row 2 -->
+    <circle cx="80" cy="170" r="24" fill="#ff7a1a"/><circle cx="130" cy="170" r="24" fill="#ffc21a"/><circle cx="180" cy="170" r="24" fill="#6be04a"/><circle cx="230" cy="170" r="24" fill="#1ad6c0"/><circle cx="280" cy="170" r="24" fill="#2f8cff"/><circle cx="330" cy="170" r="24" fill="#8a4dff"/><circle cx="380" cy="170" r="24" fill="#e04dd0"/><circle cx="430" cy="170" r="24" fill="#ff3b4a"/>
+    <!-- row 3, with one pixel lit white and glowing -->
+    <circle cx="80" cy="250" r="24" fill="#ffc21a"/><circle cx="130" cy="250" r="24" fill="#6be04a"/><circle cx="180" cy="250" r="24" fill="#1ad6c0"/>
+    <circle cx="230" cy="250" r="60" fill="url(#glow)"/><circle cx="230" cy="250" r="26" fill="#ffffff"/>
+    <circle cx="280" cy="250" r="24" fill="#8a4dff"/><circle cx="330" cy="250" r="24" fill="#e04dd0"/><circle cx="380" cy="250" r="24" fill="#ff3b4a"/><circle cx="430" cy="250" r="24" fill="#ff7a1a"/>
+    <!-- row 4 -->
+    <circle cx="80" cy="330" r="24" fill="#6be04a"/><circle cx="130" cy="330" r="24" fill="#1ad6c0"/><circle cx="180" cy="330" r="24" fill="#2f8cff"/><circle cx="230" cy="330" r="24" fill="#8a4dff"/><circle cx="280" cy="330" r="24" fill="#e04dd0"/><circle cx="330" cy="330" r="24" fill="#ff3b4a"/><circle cx="380" cy="330" r="24" fill="#ff7a1a"/><circle cx="430" cy="330" r="24" fill="#ffc21a"/>
+    <!-- row 5 -->
+    <circle cx="80" cy="410" r="24" fill="#1ad6c0"/><circle cx="130" cy="410" r="24" fill="#2f8cff"/><circle cx="180" cy="410" r="24" fill="#8a4dff"/><circle cx="230" cy="410" r="24" fill="#e04dd0"/><circle cx="280" cy="410" r="24" fill="#ff3b4a"/><circle cx="330" cy="410" r="24" fill="#ff7a1a"/><circle cx="380" cy="410" r="24" fill="#ffc21a"/><circle cx="430" cy="410" r="24" fill="#6be04a"/>
+  </g>
+</svg>

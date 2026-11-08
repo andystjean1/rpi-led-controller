@@ -8,7 +8,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0e1116">
-<link rel="icon" type="image/svg+xml" href="/icon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="/strip-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="/strip-icon.svg">
 <style>
 :root {
   --bg: #0e1116; --surface: #161a21; --raised: #1c212a; --line: #262c36;
@@ -40,6 +41,20 @@ button.mode small { display: block; font-weight: 400; font-size: 11px; color: va
 .row output { width: 34px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
 input[type=range] { flex: 1; min-height: 36px; accent-color: var(--accent); }
 input[type=color] { width: 100%; height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--raised); padding: 2px; }
+.cal-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+#calInfo { font-size: 14px; font-variant-numeric: tabular-nums; }
+.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 6px; }
+table.cal { border-collapse: separate; border-spacing: 3px; }
+table.cal td { width: 30px; height: 38px; min-width: 30px; border-radius: 6px; background: var(--raised); border: 1px solid var(--line);
+  font-size: 9px; color: var(--muted); text-align: center; padding: 0; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+table.cal td.on { background: #fff; color: #000; border-color: #fff; box-shadow: 0 0 8px #fff; }
+table.cal td.hdr { background: none; border: 0; width: auto; min-width: 34px; font-size: 12px; position: sticky; left: 0; background: var(--surface); }
+table.cal tr:first-child td { height: 18px; border: 0; background: none; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.btns button { min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--raised); color: var(--text); font: inherit; font-size: 14px; }
+.chk { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; }
+.chk input { width: 22px; height: 22px; accent-color: var(--accent); }
+.hint { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
 #status { min-height: 20px; font-size: 13px; color: var(--muted); text-align: center; }
 #status.err { color: #ff6b6b; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -60,9 +75,26 @@ input[type=color] { width: 100%; height: 44px; border: 1px solid var(--line); bo
     <input type="color" id="picker" aria-label="Custom color" value="#ffffff">
   </section>
 
+  <section id="calSec" hidden>
+    <h2>Calibrate: 5 strips × 60 pixels</h2>
+    <div class="cal-top"><span id="calInfo">Tap a pixel</span><span class="chk"><input type="checkbox" id="keep"><label for="keep">Keep earlier ones lit</label></span></div>
+    <div class="scroll"><table class="cal" id="grid" aria-label="Pixel grid"></table></div>
+    <p class="hint">Row 1 is the top strip, column 1 the left end. Scroll sideways for all 60. Number shown is the position along the data line (0 = first pixel after the controller).</p>
+    <div class="btns">
+      <button id="clearCal">Clear</button>
+      <button id="firstCol">Start of every strip</button>
+      <button id="lastCol">End of every strip</button>
+    </div>
+    <h2 style="margin-top:16px">Wiring fixes</h2>
+    <label class="chk"><input type="checkbox" id="lyReverse"> Line starts at the far end</label>
+    <label class="chk"><input type="checkbox" id="lySerp"> Every other strip runs backwards</label>
+    <label class="chk"><input type="checkbox" id="lyFlip"> Top strip is the last in the line</label>
+    <p class="hint">Tap the top-left pixel. If the wrong end lights, tick these until the grid matches what you see on the wall.</p>
+  </section>
+
   <section>
     <h2>Settings</h2>
-    <div class="row"><label for="bright">Brightness</label><input type="range" id="bright" min="1" max="200"><output id="brightOut"></output></div>
+    <div class="row"><label for="bright">Brightness</label><input type="range" id="bright" min="1" max="120"><output id="brightOut"></output></div>
     <div class="row" id="speedRow"><label for="speed">Speed</label><input type="range" id="speed" min="1" max="10"><output id="speedOut"></output></div>
   </section>
 
@@ -72,7 +104,9 @@ input[type=color] { width: 100%; height: 44px; border: 1px solid var(--line); bo
 const MODES = [
   ["monitor", "Monitor", "laptop health"], ["solid", "Solid", "one color"], ["rainbow", "Rainbow", "cycling"],
   ["chase", "Chase", "comet"], ["breathe", "Breathe", "fade"], ["off", "Off", "dark"],
+  ["calibrate", "Calibrate", "pixel grid"],
 ];
+const ROWS = 5, COLS = 60;
 const COLORS = ["#ff0000", "#ff7a00", "#ffd000", "#00e060", "#00c8ff", "#3a5bff", "#a020ff", "#ff2fa0", "#ffffff", "#ff9a40", "#40ffd0", "#8040ff"];
 const $ = id => document.getElementById(id);
 let state = {}, timer = null, pending = {};
@@ -101,9 +135,64 @@ function draw() {
   $("picker").value = cur;
   $("bright").value = state.brightness; $("brightOut").textContent = state.brightness;
   $("speed").value = state.speed; $("speedOut").textContent = state.speed;
-  $("colorSec").style.opacity = ["solid", "chase", "breathe"].includes(state.mode) ? 1 : .45;
+  const cal = state.mode === "calibrate";
+  $("calSec").hidden = !cal; $("colorSec").hidden = cal;
+  if (cal) drawGrid();
+  $("colorSec").style.opacity =["solid", "chase", "breathe"].includes(state.mode) ? 1 : .45;
   $("speedRow").style.opacity = ["rainbow", "chase", "breathe"].includes(state.mode) ? 1 : .45;
 }
+
+// Same mapping as strip_daemon.grid_index, only used to show the position along the line.
+function lineIndex(row, col) {
+  const ly = state.layout || {};
+  const r = ly.flip_rows ? ROWS - 1 - row : row;
+  const c = ly.serpentine && r % 2 ? COLS - 1 - col : col;
+  const i = r * COLS + c;
+  return ly.reverse ? ROWS * COLS - 1 - i : i;
+}
+
+function drawGrid() {
+  const lit = new Set((state.cal || []).map(([r, c]) => r + "," + c));
+  const t = $("grid");
+  if (!t.firstChild) {   // build once, then only toggle classes so taps stay responsive
+    let h = "<tr><td></td>";
+    for (let c = 0; c < COLS; c++) h += "<td>" + (c + 1) + "</td>";
+    h += "</tr>";
+    for (let r = 0; r < ROWS; r++) {
+      h += '<tr><td class="hdr">' + (r + 1) + "</td>";
+      for (let c = 0; c < COLS; c++) h += '<td data-r="' + r + '" data-c="' + c + '"></td>';
+      h += "</tr>";
+    }
+    t.innerHTML = h;
+  }
+  for (const td of t.querySelectorAll("td[data-r]")) {
+    const r = +td.dataset.r, c = +td.dataset.c, on = lit.has(r + "," + c);
+    td.classList.toggle("on", on);
+    td.textContent = on ? lineIndex(r, c) : "";
+  }
+  const cells = state.cal || [];
+  $("calInfo").textContent = cells.length === 0 ? "Tap a pixel"
+    : cells.length === 1 ? "Strip " + (cells[0][0] + 1) + ", pixel " + (cells[0][1] + 1) + " (line position " + lineIndex(...cells[0]) + ")"
+    : cells.length + " pixels lit";
+  $("lyReverse").checked = !!(state.layout || {}).reverse;
+  $("lySerp").checked = !!(state.layout || {}).serpentine;
+  $("lyFlip").checked = !!(state.layout || {}).flip_rows;
+}
+
+$("grid").addEventListener("click", e => {
+  const td = e.target.closest("td[data-r]");
+  if (!td) return;
+  const cell = [+td.dataset.r, +td.dataset.c], key = cell.join(",");
+  let cal = state.cal || [];
+  if ($("keep").checked) cal = cal.some(x => x.join(",") === key) ? cal.filter(x => x.join(",") !== key) : [...cal, cell];
+  else cal = [cell];
+  send({ cal });
+});
+$("clearCal").onclick = () => send({ cal: [] });
+$("firstCol").onclick = () => send({ cal: Array.from({ length: ROWS }, (_, r) => [r, 0]) });
+$("lastCol").onclick = () => send({ cal: Array.from({ length: ROWS }, (_, r) => [r, COLS - 1]) });
+const layoutSend = () => send({ layout: { reverse: $("lyReverse").checked, serpentine: $("lySerp").checked, flip_rows: $("lyFlip").checked } });
+for (const id of ["lyReverse", "lySerp", "lyFlip"]) $(id).onchange = layoutSend;
 
 function say(msg, err) { $("status").textContent = msg; $("status").className = err ? "err" : ""; }
 

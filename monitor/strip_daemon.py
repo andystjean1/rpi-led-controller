@@ -20,7 +20,8 @@ import time
 from rpi_ws281x import Color, PixelStrip
 
 STATE_FILE = os.environ.get("STRIP_STATE", "/home/bananaman/hp-monitor/strip_state.json")
-LED_COUNT = 120
+ROWS, COLS = 5, 60   # five 60-pixel strips wired end to end in one line
+LED_COUNT = ROWS * COLS
 LED_PIN = 18
 LED_FREQ_HZ = 800000
 LED_DMA = 10
@@ -49,7 +50,21 @@ def scaled(rgb, k):
 # Phone control (written by web.py's /api/strip). mode "monitor" shows laptop health; the rest
 # override it. A missing or bad file means monitor mode.
 CONTROL_FILE = os.environ.get("STRIP_CONTROL", "/home/bananaman/hp-monitor/strip_control.json")
-MAX_BRIGHTNESS = 200
+MAX_BRIGHTNESS = 120  # 300 pixels at full white can pull ~18 A; this keeps a modest supply safe
+
+
+def grid_index(row, col, layout):
+    """Grid cell (row 0 = top of the grid, col 0 = left) -> position along the data line.
+
+    layout (set from the phone's calibration screen):
+      flip_rows   row 0 is the strip nearest the end of the line instead of the start
+      serpentine  every other strip runs backwards (strips joined in a zigzag)
+      reverse     the whole line starts at the far end
+    """
+    r = ROWS - 1 - row if layout.get("flip_rows") else row
+    c = COLS - 1 - col if layout.get("serpentine") and r % 2 else col
+    i = r * COLS + c
+    return LED_COUNT - 1 - i if layout.get("reverse") else i
 
 
 def load_control():
@@ -84,6 +99,17 @@ def control_frame(strip, ctl, t):
     if mode == "off":
         for i in range(n):
             strip.setPixelColor(i, Color(0, 0, 0))
+    elif mode == "calibrate":
+        for i in range(n):
+            strip.setPixelColor(i, Color(0, 0, 0))
+        layout = ctl.get("layout", {})
+        for cell in ctl.get("cal", [])[:LED_COUNT]:
+            try:
+                row, col = int(cell[0]), int(cell[1])
+            except (TypeError, ValueError, IndexError):
+                continue
+            if 0 <= row < ROWS and 0 <= col < COLS:
+                strip.setPixelColor(grid_index(row, col, layout), Color(255, 255, 255))
     elif mode == "solid":
         for i in range(n):
             strip.setPixelColor(i, Color(*rgb))
