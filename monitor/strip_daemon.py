@@ -1,23 +1,23 @@
-"""Root daemon that shows the laptop monitor's state on the WS281x strip.
+"""Root daemon that drives the 5x60 WS281x grid: effects and laptop-monitor modes.
 
-Reads STATE_FILE (written by display.py on every poll) and animates:
-  the strip is split into one equal segment per laptop, in name order;
-  ok    steady dim green        warn  steady amber
-  bad   steady red, with the pixels for failing services blinking white at the segment's start
-  down  slow red pulse          (laptop unreachable)
-If the state file is older than STALE_S (poller dead) the whole strip pulses blue.
+Reads STATE_FILE (written by display.py on every poll) and CONTROL_FILE (written by the phone page)
+and draws the chosen mode from effects.py onto a canvas, which `flush` maps onto the wiring.
+Monitor modes (monitor, rack, heartbeat, vitals) show each laptop's health; the show-off effects can
+be interrupted by a red alert overlay when a laptop is bad or down (control "alerts", default on).
+If the state file is older than STALE_S (poller dead) the monitor modes pulse blue.
 Needs root on a Pi 3 (PWM via /dev/vcio), so it runs as a system service: see install_strip.sh.
     python3 strip_daemon.py [--test]     # --test cycles red/green/blue and exits
 """
 import argparse
 import json
-import math
 import os
 import signal
 import sys
 import time
 
 from rpi_ws281x import Color, PixelStrip
+
+import effects
 
 STATE_FILE = os.environ.get("STRIP_STATE", "/home/bananaman/hp-monitor/strip_state.json")
 ROWS, COLS = 5, 60   # five 60-pixel strips wired end to end in one line
@@ -29,8 +29,6 @@ LED_BRIGHTNESS = int(os.environ.get("STRIP_BRIGHTNESS", "80"))  # 0-255; keeps t
 STALE_S = 120
 FRAME_S = 0.05
 
-BASE = {"ok": (0, 90, 0), "warn": (200, 110, 0), "bad": (220, 0, 0), "down": (220, 0, 0)}
-
 
 def load():
     try:
@@ -41,10 +39,6 @@ def load():
     if time.time() - data.get("written", 0) > STALE_S:
         return None
     return data.get("laptops", {})
-
-
-def scaled(rgb, k):
-    return Color(*(int(c * k) for c in rgb))
 
 
 # Phone control (written by web.py's /api/strip). mode "monitor" shows laptop health; the rest
@@ -76,85 +70,40 @@ def load_control():
         return {}
 
 
-def wheel(pos):
-    pos %= 256
-    if pos < 85:
-        return (pos * 3, 255 - pos * 3, 0)
-    if pos < 170:
-        pos -= 85
-        return (255 - pos * 3, 0, pos * 3)
-    pos -= 170
-    return (0, pos * 3, 255 - pos * 3)
+def flush(strip, cv, layout):
+    """Copy the finished canvas onto the strip through the wiring map."""
+    for r in range(ROWS):
+        row = cv[r]
+        for c in range(COLS):
+            red, green, blue = row[c]
+            strip.setPixelColor(grid_index(r, c, layout), Color(min(255, int(red)), min(255, int(green)),
+                                                                min(255, int(blue))))
 
 
-def control_frame(strip, ctl, t):
-    """Draw a phone-chosen mode. Returns False for monitor mode (caller draws that)."""
+def render(strip, ctl, laptops, t, dt, state):
+    """Draw one frame for the phone's chosen mode (unknown modes fall back to monitor)."""
     mode = ctl.get("mode", "monitor")
-    n = strip.numPixels()
-    try:
-        rgb = tuple(max(0, min(255, int(v))) for v in ctl.get("color", [255, 255, 255]))[:3]
-        speed = max(1, min(10, int(ctl.get("speed", 5))))
-    except (TypeError, ValueError):
-        rgb, speed = (255, 255, 255), 5
-    if mode == "off":
-        for i in range(n):
-            strip.setPixelColor(i, Color(0, 0, 0))
-    elif mode == "calibrate":
-        for i in range(n):
-            strip.setPixelColor(i, Color(0, 0, 0))
-        layout = ctl.get("layout", {})
+    layout = ctl.get("layout", {})
+    cv = effects.new()
+    if mode == "calibrate":
         for cell in ctl.get("cal", [])[:LED_COUNT]:
             try:
                 row, col = int(cell[0]), int(cell[1])
             except (TypeError, ValueError, IndexError):
                 continue
             if 0 <= row < ROWS and 0 <= col < COLS:
-                strip.setPixelColor(grid_index(row, col, layout), Color(255, 255, 255))
-    elif mode == "solid":
-        for i in range(n):
-            strip.setPixelColor(i, Color(*rgb))
-    elif mode == "rainbow":
-        shift = t * speed * 20
-        for i in range(n):
-            strip.setPixelColor(i, Color(*wheel(int(i * 256 / n + shift))))
-    elif mode == "chase":
-        head = int(t * speed * 8) % n
-        for i in range(n):
-            d = (head - i) % n
-            strip.setPixelColor(i, scaled(rgb, max(0.0, 1 - d / 15)))
-    elif mode == "breathe":
-        k = 0.5 + 0.5 * math.sin(t * speed * 0.6)
-        for i in range(n):
-            strip.setPixelColor(i, scaled(rgb, k))
-    else:
-        return False
-    return True
-
-
-def frame(strip, laptops, t):
-    n = strip.numPixels()
-    if laptops is None:  # no fresh data: say so
-        k = 0.15 + 0.85 * (0.5 + 0.5 * math.sin(t * 2.0))
-        for i in range(n):
-            strip.setPixelColor(i, scaled((0, 40, 220), k))
-        return
-    labels = sorted(laptops)
-    if not labels:
-        labels = []
-    seg = n // max(len(labels), 1)
-    blink = int(t * 2) % 2 == 0
-    for idx, label in enumerate(labels):
-        info = laptops[label]
-        state = info.get("overall", "down")
-        rgb = BASE.get(state, BASE["down"])
-        k = 0.2 + 0.8 * (0.5 + 0.5 * math.sin(t * 1.5)) if state == "down" else 1.0
-        start = idx * seg
-        end = n if idx == len(labels) - 1 else start + seg
-        for i in range(start, end):
-            strip.setPixelColor(i, scaled(rgb, k))
-        if state in ("warn", "bad"):
-            for j in range(min(len(info.get("bad", [])), 8)):
-                strip.setPixelColor(start + j, Color(255, 255, 255) if blink else Color(0, 0, 0))
+                cv[row][col] = (255, 255, 255)
+    elif mode != "off":
+        try:
+            rgb = tuple(max(0, min(255, int(v))) for v in ctl.get("color", [255, 255, 255]))[:3]
+            speed = max(1, min(10, int(ctl.get("speed", 5))))
+        except (TypeError, ValueError):
+            rgb, speed = (255, 255, 255), 5
+        ctx = {"t": t, "dt": dt, "rgb": rgb, "speed": speed, "laptops": laptops, "state": state}
+        effects.MODES.get(mode, effects.monitor)(cv, ctx)
+        if mode in effects.EFFECTS and ctl.get("alerts", True):
+            effects.alert_overlay(cv, ctx)  # the monitor modes show problems themselves
+    flush(strip, cv, layout)
 
 
 def main():
@@ -183,6 +132,7 @@ def main():
         clear()
 
     last_load, laptops, ctl, bright = 0.0, None, {}, LED_BRIGHTNESS
+    last_frame, fx_state = time.time(), {}
     while True:
         now = time.time()
         if now - last_load > 0.3:  # re-read the files ~3x a second, animate at 20 fps
@@ -194,8 +144,8 @@ def main():
             if want != bright:
                 strip.setBrightness(want)
                 bright = want
-        if not control_frame(strip, ctl, now):
-            frame(strip, laptops, now)
+        render(strip, ctl, laptops, now, min(0.25, now - last_frame), fx_state)
+        last_frame = now
         strip.show()
         time.sleep(FRAME_S)
 

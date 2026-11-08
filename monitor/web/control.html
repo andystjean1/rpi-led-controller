@@ -29,6 +29,8 @@ a { color: var(--accent); text-decoration: none; font-size: 14px; }
 section { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
 h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+h3.grp { grid-column: 1 / -1; margin: 6px 0 0; font-size: 12px; color: var(--muted); font-weight: 600; }
+h3.grp:first-child { margin-top: 0; }
 button.mode { min-height: 52px; border-radius: 12px; border: 1px solid var(--line); background: var(--raised);
   color: var(--text); font: inherit; font-weight: 600; }
 button.mode[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
@@ -96,16 +98,29 @@ table.cal tr:first-child td { height: 18px; border: 0; background: none; }
     <h2>Settings</h2>
     <div class="row"><label for="bright">Brightness</label><input type="range" id="bright" min="1" max="120"><output id="brightOut"></output></div>
     <div class="row" id="speedRow"><label for="speed">Speed</label><input type="range" id="speed" min="1" max="10"><output id="speedOut"></output></div>
+    <label class="chk" id="alertRow"><input type="checkbox" id="alerts"> Red alert on effects when a laptop is bad or down</label>
   </section>
 
   <div id="status" role="status" aria-live="polite"></div>
 </div>
 <script>
-const MODES = [
-  ["monitor", "Monitor", "laptop health"], ["solid", "Solid", "one color"], ["rainbow", "Rainbow", "cycling"],
-  ["chase", "Chase", "comet"], ["breathe", "Breathe", "fade"], ["off", "Off", "dark"],
-  ["calibrate", "Calibrate", "pixel grid"],
+const GROUPS = [
+  ["Monitor", [
+    ["monitor", "Ambient", "glow per laptop"], ["rack", "Rack", "pixel per service"],
+    ["heartbeat", "Heartbeat", "ECG per laptop"], ["vitals", "Vitals", "health + disk bars"],
+  ]],
+  ["Effects", [
+    ["rainbow", "Rainbow", "cycling"], ["plasma", "Plasma", "swirl"], ["aurora", "Aurora", "northern lights"],
+    ["fire", "Fire", "flames"], ["matrix", "Matrix", "rain"], ["meteor", "Meteor", "streaks"],
+    ["scanner", "Scanner", "Knight Rider"], ["wave", "Wave", "sine"], ["twinkle", "Twinkle", "stars"],
+    ["chase", "Chase", "comet"], ["breathe", "Breathe", "fade"], ["solid", "Solid", "one color"],
+  ]],
+  ["Other", [["off", "Off", "dark"], ["calibrate", "Calibrate", "pixel grid"]]],
 ];
+const USES_COLOR = ["solid", "chase", "breathe", "wave", "scanner", "twinkle", "meteor"];
+const USES_SPEED = ["rainbow", "chase", "breathe", "plasma", "aurora", "fire", "matrix", "meteor", "scanner",
+  "wave", "twinkle", "heartbeat"];
+const EFFECT_IDS = GROUPS[1][1].map(m => m[0]);
 const ROWS = 5, COLS = 60;
 const COLORS = ["#ff0000", "#ff7a00", "#ffd000", "#00e060", "#00c8ff", "#3a5bff", "#a020ff", "#ff2fa0", "#ffffff", "#ff9a40", "#40ffd0", "#8040ff"];
 const $ = id => document.getElementById(id);
@@ -116,20 +131,27 @@ function rgb(h) { return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); }
 
 function draw() {
   $("modes").innerHTML = "";
-  for (const [id, name, sub] of MODES) {
-    const b = document.createElement("button");
-    b.className = "mode"; b.setAttribute("aria-pressed", state.mode === id);
-    b.innerHTML = name + "<small>" + sub + "</small>";
-    b.onclick = () => send({ mode: id });
-    $("modes").appendChild(b);
+  for (const [group, modes] of GROUPS) {
+    const h = document.createElement("h3");
+    h.textContent = group; h.className = "grp";
+    $("modes").appendChild(h);
+    for (const [id, name, sub] of modes) {
+      const b = document.createElement("button");
+      b.className = "mode"; b.setAttribute("aria-pressed", state.mode === id);
+      b.innerHTML = name + "<small>" + sub + "</small>";
+      b.onclick = () => send({ mode: id });
+      $("modes").appendChild(b);
+    }
   }
+  $("alerts").checked = state.alerts !== false;
+  $("alertRow").style.opacity = EFFECT_IDS.includes(state.mode) ? 1 : .45;
   $("swatches").innerHTML = "";
   const cur = hex(state.color || [255, 255, 255]);
   for (const c of COLORS) {
     const b = document.createElement("button");
     b.className = "sw"; b.style.background = c; b.setAttribute("aria-label", c);
     b.setAttribute("aria-pressed", c === cur);
-    b.onclick = () => send({ color: rgb(c), mode: ["solid", "chase", "breathe"].includes(state.mode) ? state.mode : "solid" });
+    b.onclick = () => send({ color: rgb(c), mode: USES_COLOR.includes(state.mode) ? state.mode : "solid" });
     $("swatches").appendChild(b);
   }
   $("picker").value = cur;
@@ -138,8 +160,8 @@ function draw() {
   const cal = state.mode === "calibrate";
   $("calSec").hidden = !cal; $("colorSec").hidden = cal;
   if (cal) drawGrid();
-  $("colorSec").style.opacity =["solid", "chase", "breathe"].includes(state.mode) ? 1 : .45;
-  $("speedRow").style.opacity = ["rainbow", "chase", "breathe"].includes(state.mode) ? 1 : .45;
+  $("colorSec").style.opacity = USES_COLOR.includes(state.mode) ? 1 : .45;
+  $("speedRow").style.opacity = USES_SPEED.includes(state.mode) ? 1 : .45;
 }
 
 // Same mapping as strip_daemon.grid_index, only used to show the position along the line.
@@ -212,7 +234,8 @@ function send(patch) {
 
 $("bright").oninput = e => send({ brightness: +e.target.value });
 $("speed").oninput = e => send({ speed: +e.target.value });
-$("picker").oninput = e => send({ color: rgb(e.target.value), mode: ["solid", "chase", "breathe"].includes(state.mode) ? state.mode : "solid" });
+$("picker").oninput = e => send({ color: rgb(e.target.value), mode: USES_COLOR.includes(state.mode) ? state.mode : "solid" });
+$("alerts").onchange = e => send({ alerts: e.target.checked });
 
 fetch("/api/strip").then(r => r.json()).then(s => { state = s; draw(); })
   .catch(() => say("Couldn't load settings from the Pi", true));

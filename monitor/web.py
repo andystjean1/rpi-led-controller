@@ -27,11 +27,14 @@ STATIC = {
 
 
 CONTROL_FILE = os.environ.get("STRIP_CONTROL", os.path.expanduser("~/hp-monitor/strip_control.json"))
-MODES = ("monitor", "solid", "rainbow", "chase", "breathe", "off", "calibrate")
+# Keep in step with effects.MODES (the root daemon's list) plus off and calibrate.
+MODES = ("monitor", "rack", "heartbeat", "vitals",
+         "solid", "rainbow", "chase", "breathe", "plasma", "aurora", "wave", "scanner",
+         "twinkle", "meteor", "fire", "matrix", "off", "calibrate")
 ROWS, COLS = 5, 60
 LAYOUT_KEYS = ("flip_rows", "serpentine", "reverse")
 DEFAULT_CONTROL = {"mode": "monitor", "color": [255, 255, 255], "brightness": 80, "speed": 5,
-                   "cal": [], "layout": {k: False for k in LAYOUT_KEYS}}
+                   "alerts": True, "cal": [], "layout": {k: False for k in LAYOUT_KEYS}}
 
 
 def read_control():
@@ -59,6 +62,8 @@ def update_control(patch):
     if isinstance(patch.get("layout"), dict):
         ctl["layout"] = {**ctl.get("layout", {}),
                          **{k: bool(v) for k, v in patch["layout"].items() if k in LAYOUT_KEYS}}
+    if "alerts" in patch:
+        ctl["alerts"] = bool(patch["alerts"])
     if "speed" in patch:
         ctl["speed"] = max(1, min(10, int(patch["speed"])))
     ctl["changed"] = time.time()

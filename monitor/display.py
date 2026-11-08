@@ -39,6 +39,8 @@ def render(status, label):
            if s["level"] in ("warn", "bad")]
     _states[label] = {"overall": status["overall"], "bad": [s["name"] for s in services
                                                             if s["level"] in ("warn", "bad")],
+                      "services": [[s["name"], s["level"]] for s in services],
+                      "disk_free_pct": (status.get("host_vitals") or {}).get("disk_free_pct"),
                       "at": time.time()}
     _write()  # every poll, so the daemon can tell the poller is alive
 
