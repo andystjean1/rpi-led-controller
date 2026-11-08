@@ -433,7 +433,7 @@ def claude_level(ctx, m):
     dt = ctx["dt"]
     working = sum(1 for s in ctx["claude"]["sessions"] if s["state"] == "working")
     m["rate"] = m["rate"] * math.exp(-dt / 3.0) + len(ctx["events"]) / 3.0
-    target = min(1.0, 0.12 * min(working, 3) + m["rate"] / 1.4)
+    target = min(1.0, 0.2 * min(working, 3) + m["rate"] / 1.8)
     m["level"] += (target - m["level"]) * (1 - math.exp(-dt / (0.35 if target > m["level"] else 1.8)))
     return m["level"]
 
@@ -445,22 +445,22 @@ def claude_meter(cv, ctx):
     if ctx["claude"] is None:
         return no_claude(cv, ctx)
     m = ctx["state"].setdefault("blaze", {"heat": [[0.0] * COLS for _ in range(ROWS)], "rate": 0.0, "level": 0.0})
-    lv = claude_level(ctx, m)
+    lv = claude_level(ctx, m) ** 0.55  # a curve, so modest work already makes a proper fire
     heat, last = m["heat"], ROWS - 1
     for _ in ctx["events"]:  # a flare per tool call
         c0 = random.randrange(COLS)
-        for c in range(max(0, c0 - 2), min(COLS, c0 + 3)):
-            heat[last][c] = 1.0
+        for c in range(max(0, c0 - 3), min(COLS, c0 + 4)):  # a wider, hotter flare
+            heat[last][c] = 1.3
     width = 0.12 + 0.88 * lv  # fuel spreads from the middle outwards as the level rises
     for c in range(COLS):
         w = max(0.0, min(1.0, (1 - abs(c - (COLS - 1) / 2) / (COLS / 2 * width)) * 2.2))  # flat-topped
         heat[last][c] = max(heat[last][c] * 0.82, w * (0.25 + 0.75 * lv) * random.uniform(0.5, 1.0))
-    cool = 0.38 - 0.28 * lv  # flames climb higher the less they cool
+    cool = 0.34 - 0.31 * lv  # flames climb higher the less they cool (at full they reach the top row)
     for r in range(last):
         for c in range(COLS):
             below = (heat[r + 1][(c - 1) % COLS] + heat[r + 1][c] * 2 + heat[r + 1][(c + 1) % COLS]) / 4
             heat[r][c] = max(0.0, below - random.uniform(0.3, 1.0) * cool)
-    gain = 0.55 + 0.75 * lv  # and burn brighter and whiter
+    gain = 0.7 + 0.9 * lv  # and burn brighter and whiter
     for r in range(ROWS):
         for c in range(COLS):
             h = min(1.3, heat[r][c] * gain)
