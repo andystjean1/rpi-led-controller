@@ -11,6 +11,7 @@ Needs root on a Pi 3 (PWM via /dev/vcio), so it runs as a system service: see in
     python3 strip_daemon.py [--test]     # --test cycles red/green/blue and exits
 """
 import argparse
+import importlib
 import json
 import os
 import signal
@@ -114,7 +115,74 @@ class ClaudeFeed:
             if new:
                 self.last_seq = max(e["seq"] for e in new)
         self.sessions = [s for s in data.get("sessions", []) if isinstance(s, dict) and s.get("id")]
-        return {"sessions": self.sessions}, new
+        pc = data.get("pc") if isinstance(data.get("pc"), dict) else None
+        return {"sessions": self.sessions, "pc": pc, "written": data.get("written")}, new
+
+
+def pi_vitals():
+    """The Pi's own CPU temperature (C) and 1-minute load, for the homelab map."""
+    out = {}
+    try:
+        with open("/sys/class/thermal/thermal_zone0/temp") as f:
+            out["temp"] = int(f.read().strip()) / 1000
+    except (OSError, ValueError):
+        pass
+    try:
+        out["load"] = os.getloadavg()[0]
+    except (OSError, AttributeError):
+        pass
+    return out
+
+
+# The live preview on the phone page reads this (web.py /api/frame). tmpfs, so no SD card wear.
+FRAME_FILE = os.environ.get("STRIP_FRAME", "/dev/shm/strip_frame.bin")
+FRAME_EVERY_S = 0.2
+
+
+def dump_frame(cv):
+    try:
+        body = bytes(max(0, min(255, int(v))) for row in cv for px in row for v in px)
+        tmp = FRAME_FILE + ".tmp"
+        with open(tmp, "wb") as f:
+            f.write(body)
+        os.chmod(tmp, 0o644)
+        os.replace(tmp, FRAME_FILE)
+    except OSError:
+        pass
+
+
+class EffectsReloader:
+    """Re-imports effects.py when the file changes, so a new or tuned effect goes live without
+    restarting this root service. A broken edit is logged and the old code keeps running."""
+
+    def __init__(self):
+        self.mtime = self._mtime()
+        self.checked = 0.0
+
+    @staticmethod
+    def _mtime():
+        try:
+            return os.path.getmtime(effects.__file__)
+        except OSError:
+            return None
+
+    def poll(self, now):
+        """True when the effects were reloaded (the caller then resets their saved state)."""
+        global effects
+        if now - self.checked < 2:
+            return False
+        self.checked = now
+        m = self._mtime()
+        if m is None or m == self.mtime:
+            return False
+        self.mtime = m
+        try:
+            effects = importlib.reload(effects)
+        except Exception as exc:  # noqa: BLE001 - keep drawing with the code we have
+            print("effects.py reload failed: %r" % (exc,), file=sys.stderr, flush=True)
+            return False
+        print("effects.py reloaded", file=sys.stderr, flush=True)
+        return True
 
 
 def effective_mode(ctl):
@@ -128,8 +196,9 @@ def effective_mode(ctl):
     return mode
 
 
-def render(strip, ctl, laptops, t, dt, state, claude=None, events=()):
-    """Draw one frame for the phone's chosen mode (unknown modes fall back to monitor)."""
+def render(strip, ctl, laptops, t, dt, state, claude=None, events=(), pi=None):
+    """Draw one frame for the phone's chosen mode (unknown modes fall back to monitor). Returns
+    the canvas."""
     mode = effective_mode(ctl)
     layout = ctl.get("layout", {})
     cv = effects.new()
@@ -149,15 +218,16 @@ def render(strip, ctl, laptops, t, dt, state, claude=None, events=()):
             rgb, speed = (255, 255, 255), 5
         ctx = {"t": t, "dt": dt, "rgb": rgb, "speed": speed, "laptops": laptops, "state": state,
                "claude": claude, "events": list(events), "text": ctl.get("text", ""), "say": ctl.get("say"),
-               "text_style": ctl.get("text_style"), "text_static": ctl.get("text_static")}
+               "text_style": ctl.get("text_style"), "text_static": ctl.get("text_static"), "pi": pi or {}}
         effects.MODES.get(mode, effects.monitor)(cv, ctx)
         if ctl.get("alerts", True):
             if mode in effects.EFFECTS:
                 effects.alert_overlay(cv, ctx)  # the monitor modes show laptop problems themselves
-            if mode not in ("claude_lanes", "claude_drones"):
-                effects.waiting_overlay(cv, ctx)  # those two already show a waiting session
+            if mode not in ("claude_lanes", "claude_drones", "homelab"):
+                effects.waiting_overlay(cv, ctx)  # those already show a waiting session
         effects.say_overlay(cv, ctx)  # a sent message scrolls over everything, once
     flush(strip, cv, layout)
+    return cv
 
 
 def main():
@@ -188,8 +258,13 @@ def main():
     last_load, laptops, ctl, bright = 0.0, None, {}, LED_BRIGHTNESS
     last_frame, fx_state = time.time(), {}
     feed, claude, events, last_claude = ClaudeFeed(), None, [], 0.0
+    reloader, pi, last_pi, last_dump = EffectsReloader(), {}, 0.0, 0.0
     while True:
         now = time.time()
+        if reloader.poll(now):
+            fx_state = {}
+        if now - last_pi > 5:
+            pi, last_pi = pi_vitals(), now
         if now - last_claude > 0.1:  # Claude events are read faster so pulses start promptly
             claude, fresh = feed.poll()
             events.extend(fresh)
@@ -203,7 +278,15 @@ def main():
             if want != bright:
                 strip.setBrightness(want)
                 bright = want
-        render(strip, ctl, laptops, now, min(0.25, now - last_frame), fx_state, claude, events)
+        try:
+            cv = render(strip, ctl, laptops, now, min(0.25, now - last_frame), fx_state, claude, events, pi)
+        except Exception as exc:  # noqa: BLE001 - a bug in a freshly reloaded effect must not kill the wall
+            print("render failed: %r" % (exc,), file=sys.stderr, flush=True)
+            fx_state, cv = {}, None
+            time.sleep(1)
+        if cv is not None and now - last_dump > FRAME_EVERY_S:
+            dump_frame(cv)
+            last_dump = now
         events = []
         last_frame = now
         strip.show()

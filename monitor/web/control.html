@@ -61,6 +61,10 @@ table.cal tr:first-child td { height: 18px; border: 0; background: none; }
 .chk { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; }
 .chk input { width: 22px; height: 22px; accent-color: var(--accent); }
 .hint { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+#live { width: 100%; height: auto; display: block; background: #000; border-radius: 8px; }
+.lg { display: flex; gap: 8px; align-items: baseline; font-size: 13px; color: var(--muted); margin-top: 6px; }
+.lg i { flex: none; width: 10px; height: 10px; border-radius: 50%; }
+.lg b { color: var(--text); font-weight: 600; }
 #status { min-height: 20px; font-size: 13px; color: var(--muted); text-align: center; }
 #status.err { color: #ff6b6b; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -69,6 +73,20 @@ table.cal tr:first-child td { height: 18px; border: 0; background: none; }
 <body>
 <div class="wrap">
   <header><h1>LED strip</h1><a href="/">Monitor →</a></header>
+
+  <section>
+    <h2>On the wall now</h2>
+    <canvas id="live" width="600" height="60" aria-label="Live copy of the LED wall"></canvas>
+    <p class="hint" id="liveNote"></p>
+    <div id="legend" hidden>
+      <div class="lg"><i style="background:#3c50ff"></i><b>Edges</b> the internet: streaks while collectors download or Claude talks to the API</div>
+      <div class="lg"><i style="background:#00b4ff"></i><b>PC</b> left bar overall health · top row one dot per app · rows below one per Claude session (sweeping = working, amber = waiting on you)</div>
+      <div class="lg"><i style="background:#ff8c00"></i><b>PC → Pi wire</b> one packet per Claude tool call: orange edit, cyan read, green shell, purple web, pink agent, blue MCP, red fail, white prompt</div>
+      <div class="lg"><i style="background:#d7145a"></i><b>Pi</b> raspberry, turns orange as it heats up; flashes as packets land; core blinks blue if its poller stopped</div>
+      <div class="lg"><i style="background:#8c8cb4"></i><b>Pi → laptops</b> every real poll: a ping goes out, the reply comes back in the laptop's health colour; a ping to a laptop that's down dies red halfway</div>
+      <div class="lg"><i style="background:#00a000"></i><b>HP</b> top row its scheduled tasks (white twinkle = running, white flash = just ran), bottom row its apps · <b>Lenovo</b> below it, on standby</div>
+    </div>
+  </section>
 
   <section>
     <h2>Mode</h2>
@@ -124,7 +142,7 @@ table.cal tr:first-child td { height: 18px; border: 0; background: none; }
 <script>
 const GROUPS = [
   ["Monitor", [
-    ["monitor", "Heartbeat", "ECG per laptop"], ["rack", "Rack", "block per service"],
+    ["homelab", "Homelab", "the whole house"], ["monitor", "Heartbeat", "ECG per laptop"], ["rack", "Rack", "block per service"],
     ["vitals", "Vitals", "health + disk bars"],
   ]],
   ["Claude", [
@@ -141,7 +159,7 @@ const GROUPS = [
 ];
 const USES_COLOR = ["solid", "chase", "breathe", "wave", "scanner", "twinkle", "meteor", "text"];
 const USES_SPEED = ["rainbow", "chase", "breathe", "plasma", "aurora", "fire", "matrix", "meteor", "scanner",
-  "wave", "twinkle", "monitor", "claude_lanes", "claude_drones", "text"];
+  "wave", "twinkle", "monitor", "claude_lanes", "claude_drones", "text", "homelab"];
 const ROWS = 5, COLS = 60;
 const COLORS = ["#ff0000", "#ff7a00", "#ffd000", "#00e060", "#00c8ff", "#3a5bff", "#a020ff", "#ff2fa0", "#ffffff", "#ff9a40", "#40ffd0", "#8040ff"];
 const $ = id => document.getElementById(id);
@@ -180,6 +198,7 @@ function draw() {
   const cal = state.mode === "calibrate";
   $("calSec").hidden = !cal; $("colorSec").hidden = cal;
   if (cal) drawGrid();
+  $("legend").hidden = state.mode !== "homelab";
   $("colorSec").style.opacity = USES_COLOR.includes(state.mode) ? 1 : .45;
   $("speedRow").style.opacity = USES_SPEED.includes(state.mode) ? 1 : .45;
 }
@@ -272,6 +291,34 @@ $("sayBanner").onclick = () => { const t = $("msg").value.trim();
   if (t) send({ text: t, mode: "text", text_style: $("msgStyle").value, text_static: $("msgStatic").checked }); };
 $("bannerBack").onclick = () => send({ restore: true });
 $("msg").onkeydown = e => { if (e.key === "Enter") $("sayOnce").click(); };
+
+// Live copy of the wall: the daemon dumps each frame (5x60 RGB bytes), polled 5x a second.
+const live = $("live"), lctx = live.getContext("2d");
+let liveBusy = false;
+async function pullFrame() {
+  if (liveBusy || document.hidden) return;
+  liveBusy = true;
+  try {
+    const r = await fetch("/api/frame", { cache: "no-store" });
+    if (!r.ok) throw new Error(await r.text());
+    const px = new Uint8Array(await r.arrayBuffer());
+    const cw = live.width / COLS, ch = live.height / ROWS;
+    lctx.fillStyle = "#000"; lctx.fillRect(0, 0, live.width, live.height);
+    for (let row = 0; row < ROWS; row++) for (let col = 0; col < COLS; col++) {
+      const i = (row * COLS + col) * 3, [R, G, B] = [px[i], px[i + 1], px[i + 2]];
+      if (R + G + B < 6) continue;
+      // brighten for the screen: the wall's own values are kept dim for the power supply
+      const lift = v => 255 * Math.pow(v / 255, 0.55) | 0;
+      lctx.fillStyle = `rgb(${lift(R)},${lift(G)},${lift(B)})`;
+      lctx.shadowColor = lctx.fillStyle; lctx.shadowBlur = 6;
+      lctx.beginPath(); lctx.arc(col * cw + cw / 2, row * ch + ch / 2, cw * 0.38, 0, Math.PI * 2); lctx.fill();
+    }
+    lctx.shadowBlur = 0;
+    $("liveNote").textContent = "";
+  } catch (e) { $("liveNote").textContent = "No live view: " + e.message; }
+  liveBusy = false;
+}
+setInterval(pullFrame, 200);
 
 fetch("/api/strip").then(r => r.json()).then(s => { state = s; $("msg").value = s.text || ""; $("msgStyle").value = s.text_style || "plain";
   $("msgStatic").checked = !!s.text_static; draw(); })

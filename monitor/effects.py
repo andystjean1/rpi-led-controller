@@ -481,6 +481,304 @@ def waiting_overlay(cv, ctx):
     return True
 
 
+# ---------------------------------------------------------------- homelab map
+#
+# The whole house on one wall, every light tied to something real:
+#
+#   cols  0-1   the internet (left)          58-59  the internet (right)
+#   cols  3-12  the PC: col 3 overall health, row 0 one pixel per app (Agent Town's buildings),
+#               rows 1-4 one Claude session each
+#   cols 13-22  row 2: the wire Agent Town pushes Claude activity down to the Pi
+#   cols 23-30  the Pi (raspberry; warms to orange as it heats up, blinks blue if its poller died)
+#   cols 31-47  row 1 / row 3: the Pi's poll wires to the HP / the Lenovo
+#   cols 48-55  rows 0-1 the HP (row 0 its scheduled tasks, row 1 its apps); rows 3-4 the Lenovo
+#
+# Packets: each Claude tool call leaves its session's row and runs to the Pi in the tool's colour;
+# each real poll sends a ping out to a laptop and its reply comes back in that laptop's health
+# colour (a ping to a laptop that is down dies halfway in red). Collector tasks downloading (the
+# HP's, or any task mid-run on the PC) and busy Claude sessions talking to the API stream to and
+# from the internet at the edges.
+
+HL_PC = 3            # PC node: cols 3..12
+HL_PI = (23, 30)
+HL_LAP = (48, 55)
+HL_WIRE_PC = (2, 13, 22)                       # row, first col, last col
+HL_WIRE_LAP = ((1, 31, 47), (3, 31, 47))       # per laptop slot
+HL_LAP_ROWS = ((0, 1), (3, 4))
+RASPBERRY = (215, 20, 90)
+HL_WIRE_RGB = (6, 9, 20)
+HL_NET_RGB = (20, 40, 150)
+HL_PING = (110, 110, 150)
+
+
+def add(cv, r, c, rgb):
+    """Add light to one pixel (packets and flashes blend over what is there)."""
+    if 0 <= r < ROWS and 0 <= c < COLS:
+        p = cv[r][c]
+        cv[r][c] = (min(255, p[0] + int(rgb[0])), min(255, p[1] + int(rgb[1])), min(255, p[2] + int(rgb[2])))
+
+
+def _hl_packet(st, path, rgb, speed, tail=4, then=None):
+    st["packets"].append({"path": path, "pos": 0.0, "rgb": rgb, "speed": speed, "tail": tail, "then": then,
+                          "done": False})
+
+
+def _hl_flash(st, key, rgb, t, dur=0.4):
+    st["flash"][key] = (rgb, t, dur)
+
+
+def _hl_flash_k(st, key, t):
+    """How much of a node's flash is left (0..1) and its colour."""
+    f = st["flash"].get(key)
+    if not f:
+        return 0.0, BLACK
+    k = 1 - (t - f[1]) / f[2]
+    if k <= 0:
+        del st["flash"][key]
+        return 0.0, BLACK
+    return k, f[0]
+
+
+def _hl_stream(st, side, rate, dt, both_ways=False):
+    """Packets between the internet at one edge and the node next to it, rate per second."""
+    acc = st["acc"].get(side, 0.0) + rate * dt
+    while acc >= 1:
+        acc -= 1
+        if side == "L":
+            row = random.randrange(ROWS)
+            path = [(row, c) for c in (0, 1, 2)]
+        else:
+            row = random.choice(HL_LAP_ROWS[0])
+            path = [(row, c) for c in (59, 58, 57, 56)]
+        if both_ways and random.random() < 0.5:
+            path.reverse()  # a request going out rather than data coming in
+        _hl_packet(st, path, (90, 120, 255), random.uniform(9, 14), tail=3)
+    st["acc"][side] = acc
+
+
+def _hl_net(cv, t, cols, busy):
+    """The internet: a dim blue shimmer that brightens while something is talking to it."""
+    for r in range(ROWS):
+        for c in cols:
+            k = 0.25 + 0.2 * math.sin(t * 0.9 + r * 1.7 + c * 2.3) + 0.35 * busy
+            cv[r][c] = scale(HL_NET_RGB, max(0.08, min(1.0, k)))
+
+
+def _hl_pc(cv, ctx, st):
+    t = ctx["t"]
+    claude = ctx.get("claude")
+    cols = range(HL_PC, HL_PC + 10)
+    if claude is None:  # Agent Town is quiet: the PC is off or the town is stopped
+        k = 0.04 + 0.12 * pulse(t, 0.3)
+        fill(cv, scale((140, 70, 220), k), cols=cols)
+        return
+    pc = claude.get("pc") or {}
+    fill(cv, scale(LEVEL.get(pc.get("overall", "ok"), LEVEL["ok"]), 1.0), cols=[HL_PC])
+    for i, level in enumerate((pc.get("apps") or [])[:9]):
+        k, rgb = _hl_flash_k(st, ("app", i), t)
+        cv[0][HL_PC + 1 + i] = mix(LEVEL.get(level, LEVEL["idle"]), rgb, k * 0.8)
+    load = (pc.get("cpu") or 0) / 100
+    sessions = claude["sessions"][:4]
+    for i in range(4):
+        row = 1 + i
+        base = (4 + int(30 * load), 4 + int(8 * load), 10)  # warmer as the PC's CPU works harder
+        if i < len(sessions):
+            s = sessions[i]
+            if s["state"] == "waiting":
+                base = scale(AMBER, 0.15 + 0.6 * pulse(t, 0.9))
+            elif s["state"] == "working":
+                base = (0, 26, 34)
+        for c in range(HL_PC + 1, HL_PC + 10):
+            cv[row][c] = base
+        if i < len(sessions) and sessions[i]["state"] == "working":  # a thinking glint sweeps the row
+            x = HL_PC + 1 + (t * 6 + i * 2.3) % 9
+            for c in range(HL_PC + 1, HL_PC + 10):
+                add(cv, row, c, scale((0, 160, 200), max(0.0, 1 - abs(c - x) / 1.6)))
+        for j in range(min(sessions[i]["subs"], 4) if i < len(sessions) else 0):
+            cv[row][HL_PC + 9 - j] = scale(KIND_RGB["agent"], 0.4 + 0.6 * pulse(t + j * 0.4, 1.4))
+        k, rgb = _hl_flash_k(st, ("row", i), t)
+        if k:
+            for c in range(HL_PC + 1, HL_PC + 10):
+                cv[row][c] = mix(cv[row][c], rgb, k)
+
+
+def _hl_pi(cv, ctx, st):
+    t, (a, b) = ctx["t"], HL_PI
+    pi = ctx.get("pi") or {}
+    temp = pi.get("temp")
+    heat = max(0.0, min(1.0, ((temp or 50) - 55) / 25))  # 55 C raspberry ... 80 C orange
+    body = mix(RASPBERRY, (255, 120, 0), heat)
+    load = max(0.0, min(1.0, (pi.get("load") or 0) / 4))
+    k, frgb = _hl_flash_k(st, "pi", t)
+    for r in range(ROWS):
+        for c in range(a, b + 1):
+            if (r in (0, ROWS - 1)) and c in (a, b):
+                continue  # rounded corners
+            core = 1 <= r <= 3 and a + 2 <= c <= b - 2
+            lv = (0.32 + 0.12 * load if core else 0.13) + 0.08 * pulse(t, 0.25)
+            cv[r][c] = mix(scale(body, lv), frgb, k * (0.55 if core else 0.25))
+    if ctx.get("laptops") is None:  # the poller on the Pi itself has died: blink its core blue
+        if int(t * 2) % 2 == 0:
+            for r in (1, 2, 3):
+                for c in range(a + 2, b - 1):
+                    cv[r][c] = (0, 40, 220)
+
+
+def _hl_lap(cv, ctx, st, slot, info):
+    t, (r0, r1) = ctx["t"], HL_LAP_ROWS[slot]
+    a, b = HL_LAP
+    width = b - a + 1
+    state = info.get("overall", "down")
+    if state == "down":
+        k = 0.1 + 0.5 * pulse(t, 0.5)
+        fill(cv, scale(LEVEL["down"], k), rows=(r0, r1), cols=range(a, b + 1))
+        return
+    services, apps = info.get("services") or [], info.get("apps") or []
+    running = set(info.get("running") or [])
+    fk, frgb = _hl_flash_k(st, ("lap", slot), t)
+    if not services and not apps:  # a box on standby: dim, with the status feed's heartbeat
+        fill(cv, scale(LEVEL.get(state, LEVEL["ok"]), 0.25), rows=(r0, r1), cols=range(a, b + 1))
+        x = a + (t * 1.5) % width
+        for c in range(a, b + 1):
+            for r in (r0, r1):
+                add(cv, r, c, scale(LEVEL.get(state, LEVEL["ok"]), max(0.0, 1 - abs(c - x)) * 1.5))
+    else:
+        blink = int(t * 3) % 2 == 0
+        for row, items in ((r0, sorted(services)), (r1, apps)):
+            for c in range(a, b + 1):
+                cv[row][c] = scale(LEVEL["idle"], 0.15)
+            for k, (name, level) in enumerate(items[:width]):
+                rgb = LEVEL.get(level, LEVEL["warn"])
+                if level == "bad" and not blink:
+                    rgb = scale(rgb, 0.25)
+                if row == r0 and name in running:  # mid-run: twinkles white
+                    rgb = mix(rgb, (255, 255, 255), 0.3 + 0.5 * pulse(t + k * 0.3, 2.0))
+                sk, srgb = _hl_flash_k(st, ("svc", slot, name), t)
+                cv[row][a + k] = mix(rgb, srgb, sk)
+    if fk:
+        for r in (r0, r1):
+            for c in range(a, b + 1):
+                cv[r][c] = mix(cv[r][c], frgb, fk * 0.5)
+
+
+def homelab(cv, ctx):
+    """The homelab map: the PC, the Pi and both laptops as nodes, and the real traffic between them
+    (see the block comment above)."""
+    t, dt = ctx["t"], ctx["dt"]
+    st = ctx["state"].setdefault("homelab", {"packets": [], "flash": {}, "acc": {}, "at": {}, "runs": {},
+                                             "written": None, "conns": None})
+    claude, laptops = ctx.get("claude"), ctx.get("laptops")
+    labels = sorted(laptops)[:2] if laptops else []
+
+    # ---- turn what changed since the last frame into packets
+    if claude is not None:
+        sessions = claude["sessions"]
+        path = [(HL_WIRE_PC[0], c) for c in range(HL_WIRE_PC[1], HL_WIRE_PC[2] + 1)]
+        for ev in ctx["events"]:
+            rgb = KIND_RGB.get(ev["k"], KIND_RGB["other"])
+            i = _lane_of(sessions, ev["s"]) if sessions else 0
+            if i < 4:
+                _hl_flash(st, ("row", i), rgb, t, 0.5)
+            _hl_packet(st, path, rgb, 16 + ctx["speed"], tail=4, then=("flash", "pi", rgb))
+        written = claude.get("written")
+        if written != st["written"]:
+            if st["written"] is not None and not ctx["events"]:  # a plain heartbeat push
+                _hl_packet(st, path, (30, 30, 50), 14, tail=2)
+            st["written"] = written
+        conns = (claude.get("pc") or {}).get("conns")
+        if isinstance(conns, int):
+            if st["conns"] is not None and conns > st["conns"]:  # apps on the PC talking to each other
+                n_apps = len((claude.get("pc") or {}).get("apps") or [])
+                for _ in range(min(conns - st["conns"], 4)):
+                    if n_apps:
+                        _hl_flash(st, ("app", random.randrange(min(n_apps, 9))), (255, 255, 255), t, 0.35)
+            st["conns"] = conns
+    for slot, label in enumerate(labels):
+        info = laptops[label]
+        at = info.get("at")
+        if at != st["at"].get(label):
+            if label in st["at"]:  # the poller just heard from this laptop (or gave up on it)
+                row, c0, c1 = HL_WIRE_LAP[slot]
+                out = [(row, c) for c in range(c0, c1 + 1)]
+                if info.get("overall") == "down":
+                    _hl_packet(st, out[:len(out) // 2], HL_PING, 26, tail=3, then=("lost", out[len(out) // 2]))
+                else:
+                    _hl_packet(st, out, HL_PING, 34, tail=3, then=("reply", slot, label))
+            st["at"][label] = at
+        runs = info.get("runs") or {}
+        seen = st["runs"].setdefault(label, dict(runs))
+        for name, last in runs.items():
+            if last and seen.get(name) and last != seen[name]:  # a task ran since the last poll
+                _hl_flash(st, ("svc", slot, name), (255, 255, 255), t, 3.0)
+                st["acc"]["R"] = st["acc"].get("R", 0.0) + (6 if slot == 0 else 0)
+            seen[name] = last
+
+    # ---- streams to and from the internet
+    working = sum(1 for s in claude["sessions"] if s["state"] == "working") if claude else 0
+    pc_tasks = ((claude or {}).get("pc") or {}).get("tasks_running") or 0
+    _hl_stream(st, "L", 1.2 * min(working, 4) + 2.0 * min(pc_tasks, 3), dt, both_ways=True)
+    hp = laptops.get(labels[0]) if labels else None
+    hp_running = len((hp or {}).get("running") or []) if hp and hp.get("overall") != "down" else 0
+    _hl_stream(st, "R", 3.0 * min(hp_running, 3), dt)
+
+    # ---- the scene
+    busy_l = min(1.0, (working + pc_tasks) / 3)
+    _hl_net(cv, t, (0, 1), busy_l)
+    _hl_net(cv, t, (58, 59), min(1.0, hp_running / 2))
+    row, c0, c1 = HL_WIRE_PC
+    fill(cv, HL_WIRE_RGB if claude is not None else BLACK, rows=[row], cols=range(c0, c1 + 1))
+    for slot in range(2):
+        row, c0, c1 = HL_WIRE_LAP[slot]
+        info = laptops.get(labels[slot]) if slot < len(labels) else None
+        if info is None:
+            continue
+        down = info.get("overall") == "down"
+        for c in range(c0, c1 + 1):
+            cv[row][c] = ((45, 0, 0) if c % 2 == 0 else BLACK) if down else HL_WIRE_RGB
+    _hl_pc(cv, ctx, st)
+    _hl_pi(cv, ctx, st)
+    for slot, label in enumerate(labels):
+        _hl_lap(cv, ctx, st, slot, laptops[label])
+    if laptops is None:  # no poll data at all: the laptop nodes pulse blue like the other monitors
+        k = 0.1 + 0.4 * pulse(t, 0.32)
+        for r0, r1 in HL_LAP_ROWS:
+            fill(cv, scale((0, 40, 220), k), rows=(r0, r1), cols=range(HL_LAP[0], HL_LAP[1] + 1))
+
+    # ---- packets on top
+    for p in st["packets"]:
+        path, head = p["path"], int(p["pos"])
+        for tail in range(p["tail"]):
+            idx = head - tail
+            if 0 <= idx < len(path):
+                k = (1 - tail / p["tail"]) ** 1.5
+                add(cv, path[idx][0], path[idx][1], scale(p["rgb"], k))
+        p["pos"] += p["speed"] * dt
+        if not p["done"] and p["pos"] >= len(path):
+            p["done"] = True
+            then = p["then"]
+            if not then:
+                continue
+            if then[0] == "flash":
+                _hl_flash(st, then[1], then[2], t)
+            elif then[0] == "lost":
+                _hl_flash(st, ("lost", then[1]), (255, 0, 0), t, 0.8)
+            elif then[0] == "reply":
+                slot, label = then[1], then[2]
+                info = (laptops or {}).get(label, {})
+                rgb = TRACE.get(info.get("overall", "ok"), TRACE["ok"])
+                _hl_flash(st, ("lap", slot), rgb, t, 0.5)
+                row, c0, c1 = HL_WIRE_LAP[slot]
+                back = [(row, c) for c in range(c1, c0 - 1, -1)]
+                _hl_packet(st, back, rgb, 26, tail=5, then=("flash", "pi", rgb))
+    st["packets"] = [p for p in st["packets"] if p["pos"] - p["tail"] < len(p["path"])][-200:]
+    for key in [k for k in st["flash"] if k[0] == "lost"]:  # a ping that never got an answer
+        k, rgb = _hl_flash_k(st, key, t)
+        if k:
+            r, c = key[1]
+            for dc in (-1, 0, 1):
+                add(cv, r, c + dc, scale(rgb, k * (1 if dc == 0 else 0.4)))
+
+
 # ---------------------------------------------------------------- text
 
 # A 5-pixel-tall font. Each glyph is five rows of "#" and "."; most are 3 wide, a few are wider.
@@ -633,6 +931,6 @@ EFFECTS = {
     "aurora": aurora, "wave": wave, "scanner": scanner, "twinkle": twinkle, "meteor": meteor,
     "fire": fire, "matrix": matrix,
 }
-MONITORS = {"monitor": monitor, "rack": rack, "vitals": vitals}
+MONITORS = {"homelab": homelab, "monitor": monitor, "rack": rack, "vitals": vitals}
 CLAUDE = {"claude_lanes": claude_lanes, "claude_drones": claude_drones, "claude_meter": claude_meter}
 MODES = {**EFFECTS, **MONITORS, **CLAUDE, "text": banner}

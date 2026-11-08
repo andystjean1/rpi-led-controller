@@ -40,6 +40,10 @@ def render(status, label):
     _states[label] = {"overall": status["overall"], "bad": [s["name"] for s in services
                                                             if s["level"] in ("warn", "bad")],
                       "services": [[s["name"], s["level"]] for s in services],
+                      # for the homelab map: app levels, each task's last run, and which are mid-run
+                      "apps": [[a["name"], a["level"]] for a in status.get("apps", [])],
+                      "runs": {s["name"]: s.get("last_run") for s in services},
+                      "running": [s["name"] for s in services if s.get("last_result") == 267009],
                       "disk_free_pct": (status.get("host_vitals") or {}).get("disk_free_pct"),
                       "at": time.time()}
     _write()  # every poll, so the daemon can tell the poller is alive

@@ -6,7 +6,9 @@
     /api/events    event feed; ?since=<id> returns only newer events (oldest first)
     /control       phone remote for the LED strip (web/control.html)
     /api/strip     GET the strip's control settings; POST JSON to change them (LAN only, no login)
-    /api/claude    POST Claude Code activity from Agent Town (sessions + tool-call events); GET for debugging
+    /api/claude    POST Claude Code activity from Agent Town (sessions + tool-call events + a coarse
+                   PC health block); GET for debugging
+    /api/frame     the frame the strip is showing right now (raw RGB bytes, 5x60x3) for the live preview
 Standard library only.
 """
 import json
@@ -30,7 +32,7 @@ STATIC = {
 
 CONTROL_FILE = os.environ.get("STRIP_CONTROL", os.path.expanduser("~/hp-monitor/strip_control.json"))
 # Keep in step with effects.MODES (the root daemon's list) plus off and calibrate.
-MODES = ("monitor", "rack", "vitals", "claude_lanes", "claude_drones", "claude_meter", "text",
+MODES = ("homelab", "monitor", "rack", "vitals", "claude_lanes", "claude_drones", "claude_meter", "text",
          "solid", "rainbow", "chase", "breathe", "plasma", "aurora", "wave", "scanner",
          "twinkle", "meteor", "fire", "matrix", "off", "calibrate")
 SAY_STYLES = ("plain", "rainbow", "flash", "wave", "shake", "fire", "disco", "siren", "sparkle")  # as effects.py
@@ -136,6 +138,37 @@ def read_claude():
         return {}
 
 
+PC_LEVELS = ("ok", "idle", "warn", "bad")
+
+
+def _clean_pc(pc):
+    """The PC's coarse health block for the homelab map (levels and counts only), or None."""
+    if not isinstance(pc, dict):
+        return None
+    cpu = pc.get("cpu")
+    return {"overall": pc.get("overall") if pc.get("overall") in PC_LEVELS else "ok",
+            "apps": [a for a in (pc.get("apps") or [])[:12] if a in PC_LEVELS],
+            "tasks_running": max(0, min(20, int(pc.get("tasks_running") or 0))),
+            "conns": max(0, int(pc.get("conns") or 0)),
+            "cpu": max(0.0, min(100.0, float(cpu))) if isinstance(cpu, (int, float)) else None}
+
+
+# The root daemon dumps each frame here (raw RGB, row by row, 5x60x3 bytes) for the live preview.
+FRAME_FILE = os.environ.get("STRIP_FRAME", "/dev/shm/strip_frame.bin")
+
+
+def read_frame():
+    """The latest frame the daemon drew, or None if it hasn't written one in the last few seconds."""
+    try:
+        if time.time() - os.path.getmtime(FRAME_FILE) > 3:
+            return None
+        with open(FRAME_FILE, "rb") as f:
+            body = f.read()
+    except OSError:
+        return None
+    return body if len(body) == ROWS * COLS * 3 else None
+
+
 def update_claude(patch):
     """Validate a push from Agent Town, append its events (new seq each), save atomically."""
     sessions = []
@@ -152,6 +185,9 @@ def update_claude(patch):
                 seq = max(seq + 1, int(time.time() * 1000))
                 events.append({"seq": seq, "s": str(e.get("s", ""))[:64], "k": e["k"]})
         state = {"written": time.time(), "seq": seq, "sessions": sessions, "events": events[-80:]}
+        pc = _clean_pc(patch.get("pc"))
+        if pc:
+            state["pc"] = pc
         tmp = CLAUDE_FILE + ".tmp"
         with open(tmp, "w") as f:
             json.dump(state, f)
@@ -203,6 +239,12 @@ def make_server(store, port):
                 self._json(read_control())
             elif url.path == "/api/claude":
                 self._json(read_claude())
+            elif url.path == "/api/frame":
+                frame = read_frame()
+                if frame is None:
+                    self._send(503, b"the strip daemon is not drawing", "text/plain")
+                else:
+                    self._send(200, frame, "application/octet-stream")
             elif url.path == "/api/state":
                 self._json(store.snapshot())
             elif url.path == "/api/events":
