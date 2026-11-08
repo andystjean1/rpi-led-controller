@@ -4,10 +4,13 @@
     /apple-touch-icon.png, /icon.svg   the home-screen icon and favicon
     /api/state     latest status of each laptop
     /api/events    event feed; ?since=<id> returns only newer events (oldest first)
+    /control       phone remote for the LED strip (web/control.html)
+    /api/strip     GET the strip's control settings; POST JSON to change them (LAN only, no login)
 Standard library only.
 """
 import json
 import os
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -19,6 +22,40 @@ STATIC = {
     "/apple-touch-icon-precomposed.png": ("apple-touch-icon.png", "image/png"),
     "/icon.svg": ("icon.svg", "image/svg+xml"),
 }
+
+
+CONTROL_FILE = os.environ.get("STRIP_CONTROL", os.path.expanduser("~/hp-monitor/strip_control.json"))
+MODES = ("monitor", "solid", "rainbow", "chase", "breathe", "off")
+DEFAULT_CONTROL = {"mode": "monitor", "color": [255, 255, 255], "brightness": 80, "speed": 5}
+
+
+def read_control():
+    try:
+        with open(CONTROL_FILE) as f:
+            return {**DEFAULT_CONTROL, **json.load(f)}
+    except (OSError, ValueError):
+        return dict(DEFAULT_CONTROL)
+
+
+def update_control(patch):
+    """Validate a posted change, merge it into the saved settings (atomic write), return them."""
+    ctl = read_control()
+    if patch.get("mode") in MODES:
+        ctl["mode"] = patch["mode"]
+    if "color" in patch:
+        c = patch["color"]
+        if isinstance(c, list) and len(c) == 3:
+            ctl["color"] = [max(0, min(255, int(v))) for v in c]
+    if "brightness" in patch:
+        ctl["brightness"] = max(1, min(200, int(patch["brightness"])))
+    if "speed" in patch:
+        ctl["speed"] = max(1, min(10, int(patch["speed"])))
+    ctl["changed"] = time.time()
+    tmp = CONTROL_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(ctl, f)
+    os.replace(tmp, CONTROL_FILE)
+    return ctl
 
 
 def make_server(store, port):
@@ -53,6 +90,16 @@ def make_server(store, port):
                     self._send(404, b"not found", "text/plain")
                     return
                 self._send(200, body, ctype, cache="public, max-age=3600")
+            elif url.path == "/control":
+                try:
+                    with open(os.path.join(WEB_DIR, "control.html"), "rb") as f:
+                        body = f.read()
+                except OSError:
+                    self._send(500, b"web/control.html is missing", "text/plain")
+                    return
+                self._send(200, body, "text/html; charset=utf-8")
+            elif url.path == "/api/strip":
+                self._json(read_control())
             elif url.path == "/api/state":
                 self._json(store.snapshot())
             elif url.path == "/api/events":
@@ -63,6 +110,19 @@ def make_server(store, port):
                 self._json({"events": store.events(since), "last_id": store.snapshot()["last_event_id"]})
             else:
                 self._send(404, b"not found", "text/plain")
+
+        def do_POST(self):
+            if urlparse(self.path).path != "/api/strip":
+                self._send(404, b"not found", "text/plain")
+                return
+            try:
+                size = min(int(self.headers.get("Content-Length", "0")), 4096)
+                patch = json.loads(self.rfile.read(size) or b"{}")
+                if not isinstance(patch, dict):
+                    raise ValueError("expected an object")
+                self._json(update_control(patch))
+            except (ValueError, TypeError, OSError) as exc:
+                self._send(400, str(exc).encode(), "text/plain")
 
         def log_message(self, fmt, *args):
             pass  # the page polls every few seconds; keep the journal quiet

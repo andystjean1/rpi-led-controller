@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LED Strip</title>
+<meta name="apple-mobile-web-app-title" content="Strip">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0e1116">
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
+<style>
+:root {
+  --bg: #0e1116; --surface: #161a21; --raised: #1c212a; --line: #262c36;
+  --text: #e8ebf0; --muted: #8f98a6; --accent: #6ea8fe;
+}
+@media (prefers-color-scheme: light) {
+  :root { --bg: #f3f5f8; --surface: #fff; --raised: #f6f8fb; --line: #dde2ea; --text: #151a22; --muted: #5d6675; --accent: #1f5fbf; }
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 520px; margin: 0 auto; padding: 20px 16px calc(40px + env(safe-area-inset-bottom)); }
+header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+h1 { font-size: 20px; margin: 0; }
+a { color: var(--accent); text-decoration: none; font-size: 14px; }
+section { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+button.mode { min-height: 52px; border-radius: 12px; border: 1px solid var(--line); background: var(--raised);
+  color: var(--text); font: inherit; font-weight: 600; }
+button.mode[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+button.mode small { display: block; font-weight: 400; font-size: 11px; color: var(--muted); }
+.swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 12px; }
+.sw { aspect-ratio: 1; border-radius: 50%; border: 2px solid var(--line); padding: 0; }
+.sw[aria-pressed="true"] { border-color: var(--text); }
+.row { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.row label { width: 84px; color: var(--muted); font-size: 14px; }
+.row output { width: 34px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
+input[type=range] { flex: 1; min-height: 36px; accent-color: var(--accent); }
+input[type=color] { width: 100%; height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--raised); padding: 2px; }
+#status { min-height: 20px; font-size: 13px; color: var(--muted); text-align: center; }
+#status.err { color: #ff6b6b; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>LED strip</h1><a href="/">Monitor →</a></header>
+
+  <section>
+    <h2>Mode</h2>
+    <div class="grid" id="modes"></div>
+  </section>
+
+  <section id="colorSec">
+    <h2>Color</h2>
+    <div class="swatches" id="swatches"></div>
+    <input type="color" id="picker" aria-label="Custom color" value="#ffffff">
+  </section>
+
+  <section>
+    <h2>Settings</h2>
+    <div class="row"><label for="bright">Brightness</label><input type="range" id="bright" min="1" max="200"><output id="brightOut"></output></div>
+    <div class="row" id="speedRow"><label for="speed">Speed</label><input type="range" id="speed" min="1" max="10"><output id="speedOut"></output></div>
+  </section>
+
+  <div id="status" role="status" aria-live="polite"></div>
+</div>
+<script>
+const MODES = [
+  ["monitor", "Monitor", "laptop health"], ["solid", "Solid", "one color"], ["rainbow", "Rainbow", "cycling"],
+  ["chase", "Chase", "comet"], ["breathe", "Breathe", "fade"], ["off", "Off", "dark"],
+];
+const COLORS = ["#ff0000", "#ff7a00", "#ffd000", "#00e060", "#00c8ff", "#3a5bff", "#a020ff", "#ff2fa0", "#ffffff", "#ff9a40", "#40ffd0", "#8040ff"];
+const $ = id => document.getElementById(id);
+let state = {}, timer = null, pending = {};
+
+function hex(rgb) { return "#" + rgb.map(v => v.toString(16).padStart(2, "0")).join(""); }
+function rgb(h) { return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); }
+
+function draw() {
+  $("modes").innerHTML = "";
+  for (const [id, name, sub] of MODES) {
+    const b = document.createElement("button");
+    b.className = "mode"; b.setAttribute("aria-pressed", state.mode === id);
+    b.innerHTML = name + "<small>" + sub + "</small>";
+    b.onclick = () => send({ mode: id });
+    $("modes").appendChild(b);
+  }
+  $("swatches").innerHTML = "";
+  const cur = hex(state.color || [255, 255, 255]);
+  for (const c of COLORS) {
+    const b = document.createElement("button");
+    b.className = "sw"; b.style.background = c; b.setAttribute("aria-label", c);
+    b.setAttribute("aria-pressed", c === cur);
+    b.onclick = () => send({ color: rgb(c), mode: ["solid", "chase", "breathe"].includes(state.mode) ? state.mode : "solid" });
+    $("swatches").appendChild(b);
+  }
+  $("picker").value = cur;
+  $("bright").value = state.brightness; $("brightOut").textContent = state.brightness;
+  $("speed").value = state.speed; $("speedOut").textContent = state.speed;
+  $("colorSec").style.opacity = ["solid", "chase", "breathe"].includes(state.mode) ? 1 : .45;
+  $("speedRow").style.opacity = ["rainbow", "chase", "breathe"].includes(state.mode) ? 1 : .45;
+}
+
+function say(msg, err) { $("status").textContent = msg; $("status").className = err ? "err" : ""; }
+
+// Merge rapid changes (slider drags) and send at most one request per 120 ms.
+function send(patch) {
+  Object.assign(state, patch); Object.assign(pending, patch); draw();
+  clearTimeout(timer);
+  timer = setTimeout(async () => {
+    const body = pending; pending = {};
+    try {
+      const r = await fetch("/api/strip", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (!r.ok) throw new Error(await r.text());
+      say("Sent");
+    } catch (e) { say("Couldn't reach the Pi: " + e.message, true); }
+  }, 120);
+}
+
+$("bright").oninput = e => send({ brightness: +e.target.value });
+$("speed").oninput = e => send({ speed: +e.target.value });
+$("picker").oninput = e => send({ color: rgb(e.target.value), mode: ["solid", "chase", "breathe"].includes(state.mode) ? state.mode : "solid" });
+
+fetch("/api/strip").then(r => r.json()).then(s => { state = s; draw(); })
+  .catch(() => say("Couldn't load settings from the Pi", true));
+</script>
+</body>
+</html>

@@ -46,6 +46,65 @@ def scaled(rgb, k):
     return Color(*(int(c * k) for c in rgb))
 
 
+# Phone control (written by web.py's /api/strip). mode "monitor" shows laptop health; the rest
+# override it. A missing or bad file means monitor mode.
+CONTROL_FILE = os.environ.get("STRIP_CONTROL", "/home/bananaman/hp-monitor/strip_control.json")
+MAX_BRIGHTNESS = 200
+
+
+def load_control():
+    try:
+        with open(CONTROL_FILE) as f:
+            c = json.load(f)
+        return c if isinstance(c, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def wheel(pos):
+    pos %= 256
+    if pos < 85:
+        return (pos * 3, 255 - pos * 3, 0)
+    if pos < 170:
+        pos -= 85
+        return (255 - pos * 3, 0, pos * 3)
+    pos -= 170
+    return (0, pos * 3, 255 - pos * 3)
+
+
+def control_frame(strip, ctl, t):
+    """Draw a phone-chosen mode. Returns False for monitor mode (caller draws that)."""
+    mode = ctl.get("mode", "monitor")
+    n = strip.numPixels()
+    try:
+        rgb = tuple(max(0, min(255, int(v))) for v in ctl.get("color", [255, 255, 255]))[:3]
+        speed = max(1, min(10, int(ctl.get("speed", 5))))
+    except (TypeError, ValueError):
+        rgb, speed = (255, 255, 255), 5
+    if mode == "off":
+        for i in range(n):
+            strip.setPixelColor(i, Color(0, 0, 0))
+    elif mode == "solid":
+        for i in range(n):
+            strip.setPixelColor(i, Color(*rgb))
+    elif mode == "rainbow":
+        shift = t * speed * 20
+        for i in range(n):
+            strip.setPixelColor(i, Color(*wheel(int(i * 256 / n + shift))))
+    elif mode == "chase":
+        head = int(t * speed * 8) % n
+        for i in range(n):
+            d = (head - i) % n
+            strip.setPixelColor(i, scaled(rgb, max(0.0, 1 - d / 15)))
+    elif mode == "breathe":
+        k = 0.5 + 0.5 * math.sin(t * speed * 0.6)
+        for i in range(n):
+            strip.setPixelColor(i, scaled(rgb, k))
+    else:
+        return False
+    return True
+
+
 def frame(strip, laptops, t):
     n = strip.numPixels()
     if laptops is None:  # no fresh data: say so
@@ -97,12 +156,20 @@ def main():
             time.sleep(1.2)
         clear()
 
-    last_load, laptops = 0.0, None
+    last_load, laptops, ctl, bright = 0.0, None, {}, LED_BRIGHTNESS
     while True:
         now = time.time()
-        if now - last_load > 1.0:  # re-read the file once a second, animate at 20 fps
-            laptops, last_load = load(), now
-        frame(strip, laptops, now)
+        if now - last_load > 0.3:  # re-read the files ~3x a second, animate at 20 fps
+            laptops, ctl, last_load = load(), load_control(), now
+            try:
+                want = max(1, min(MAX_BRIGHTNESS, int(ctl.get("brightness", LED_BRIGHTNESS))))
+            except (TypeError, ValueError):
+                want = LED_BRIGHTNESS
+            if want != bright:
+                strip.setBrightness(want)
+                bright = want
+        if not control_frame(strip, ctl, now):
+            frame(strip, laptops, now)
         strip.show()
         time.sleep(FRAME_S)
 
