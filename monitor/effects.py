@@ -495,40 +495,85 @@ _FONT = {
     "*": ("#.#", ".#.", "###", ".#.", "#.#"), ">": ("#..", ".#.", "..#", ".#.", "#.."),
     "<": ("..#", ".#.", "#..", ".#.", "..#"), "&": (".#.", "#.#", ".#.", "#.#", ".##"),
 }
+# Pixel icons, written into a message as :name: (e.g. "build done :rocket:").
+SPRITES = {
+    "heart": (".#.#.", "#####", "#####", ".###.", "..#.."), "smile": (".###.", "#.#.#", "#...#", "#.#.#", ".###."),
+    "star": ("..#..", "#####", ".###.", ".#.#.", "#...#"), "skull": (".###.", "#.#.#", "#####", ".###.", ".#.#."),
+    "ghost": (".###.", "#.#.#", "#####", "#####", "#.#.#"), "cat": ("#...#", "#####", "#.#.#", "#####", ".###."),
+    "rocket": ("..#..", ".###.", ".###.", "#####", "#.#.#"), "bolt": ("..##", "..#.", ".##.", "..#.", ".#.."),
+    "check": ("....#", "...#.", "#.#..", ".#...", "....."), "x": ("#...#", ".#.#.", "..#..", ".#.#.", "#...#"),
+}
+SAY_STYLES = ("plain", "rainbow", "flash", "wave", "shake", "fire", "disco", "siren", "sparkle")
 _text_cache = {}
+
+
+def _glyph_columns(glyph):
+    return [tuple(1 if glyph[r][j] == "#" else 0 for r in range(ROWS)) for j in range(len(glyph[0]))]
 
 
 def text_columns(text):
     """The message as a list of columns, each a tuple of five 0/1 (top to bottom); one blank column
-    between letters. Lower case is shown as capitals, unknown characters as '?'."""
+    between letters. Lower case is shown as capitals, unknown characters as '?', and :name: becomes
+    an icon from SPRITES."""
     text = str(text)[:160]
     if text not in _text_cache:
-        cols = []
-        for ch in text.upper():
-            glyph = _FONT.get(ch, _FONT["?"])
-            for j in range(len(glyph[0])):
-                cols.append(tuple(1 if glyph[r][j] == "#" else 0 for r in range(ROWS)))
-            cols.append((0,) * ROWS)
+        cols, i = [], 0
+        while i < len(text):
+            end = text.find(":", i + 1)
+            name = text[i + 1:end].lower() if text[i] == ":" and end > 0 else None
+            if name in SPRITES:
+                cols += _glyph_columns(SPRITES[name]) + [(0,) * ROWS]
+                i = end + 1
+                continue
+            cols += _glyph_columns(_FONT.get(text[i].upper(), _FONT["?"])) + [(0,) * ROWS]
+            i += 1
         if len(_text_cache) > 50:
             _text_cache.clear()
         _text_cache[text] = cols
     return _text_cache[text]
 
 
-def _draw_text(cv, cols, x0, rgb):
+def _draw_text(cv, cols, x0, rgb, style="plain", t=0.0):
+    """Draw text columns at x0. The style changes how the lit pixels are coloured or moved."""
+    dx, dy = (random.choice((-1, 0, 1)), random.choice((-1, 0, 1))) if style == "shake" else (0, 0)
     for j, col in enumerate(cols):
-        c = x0 + j
-        if 0 <= c < COLS:
-            for r in range(ROWS):
-                if col[r]:
-                    cv[r][c] = rgb
+        c = x0 + j + dx
+        shift = dy + (round(1.6 * math.sin(j * 0.55 + t * 7)) if style == "wave" else 0)
+        for r in range(ROWS):
+            if not col[r] or not 0 <= c < COLS or not 0 <= r + shift < ROWS:
+                continue
+            if style == "rainbow":
+                px = wheel(j * 14 + t * 120)
+            elif style == "flash":
+                px = rgb if int(t * 5) % 2 == 0 else (255, 255, 255)
+            elif style == "fire":
+                px = mix((255, 30, 0), (255, 230, 60), (ROWS - 1 - r) / (ROWS - 1) * random.uniform(0.7, 1.0))
+            elif style in ("disco", "siren"):
+                px = (255, 255, 255)
+            else:
+                px = rgb
+            cv[r + shift][c] = px
+
+
+def _say_background(cv, style, t):
+    """Backdrop behind a styled message (most styles have none: the wall just goes black)."""
+    if style == "disco":
+        for c in range(COLS):
+            fill(cv, scale(wheel(c * 13 + int(t * 6) * 40), 0.3), cols=[c])
+    elif style == "siren":
+        left = int(t * 4) % 2 == 0
+        fill(cv, scale((255, 0, 0) if left else (0, 0, 255), 0.45), cols=range(0, COLS // 2))
+        fill(cv, scale((0, 0, 255) if left else (255, 0, 0), 0.45), cols=range(COLS // 2, COLS))
+    elif style == "sparkle":
+        for _ in range(14):
+            cv[random.randrange(ROWS)][random.randrange(COLS)] = scale(wheel(random.randrange(256)), 0.35)
 
 
 def banner(cv, ctx):
     """The banner text from the phone, scrolling round and round."""
     cols = text_columns(ctx.get("text") or "HELLO")
     offset = int(ctx["t"] * (8 + ctx["speed"] * 3)) % (len(cols) + COLS)
-    _draw_text(cv, cols, COLS - offset, tuple(ctx["rgb"]))
+    _draw_text(cv, cols, COLS - offset, tuple(ctx["rgb"]), "plain", ctx["t"])
 
 
 def say_overlay(cv, ctx):
@@ -544,14 +589,17 @@ def say_overlay(cv, ctx):
     if t0 is None or not isinstance(say, dict):
         return False
     cols = text_columns(say.get("text", ""))
-    x0 = COLS - int((ctx["t"] - t0) * (8 + ctx["speed"] * 3))
-    if x0 + len(cols) < 0:
+    span = len(cols) + COLS  # one full pass: in from the right edge, out through the left
+    speed = say.get("speed") or ctx["speed"]
+    travelled = (ctx["t"] - t0) * (8 + speed * 3)
+    if travelled >= span * max(1, int(say.get("repeat") or 1)):
         st["say_t0"] = None
         return False
     for r in range(ROWS):
         cv[r] = [BLACK] * COLS
-    rgb = tuple(say.get("rgb") or (255, 255, 255))
-    _draw_text(cv, cols, x0, rgb)
+    style = say.get("style") if say.get("style") in SAY_STYLES else "plain"
+    _say_background(cv, style, ctx["t"])
+    _draw_text(cv, cols, COLS - int(travelled % span), tuple(say.get("rgb") or (255, 255, 255)), style, ctx["t"])
     return True
 
 

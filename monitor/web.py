@@ -33,6 +33,7 @@ CONTROL_FILE = os.environ.get("STRIP_CONTROL", os.path.expanduser("~/hp-monitor/
 MODES = ("monitor", "rack", "vitals", "claude_lanes", "claude_drones", "claude_meter", "text",
          "solid", "rainbow", "chase", "breathe", "plasma", "aurora", "wave", "scanner",
          "twinkle", "meteor", "fire", "matrix", "off", "calibrate")
+SAY_STYLES = ("plain", "rainbow", "flash", "wave", "shake", "fire", "disco", "siren", "sparkle")  # as effects.py
 ROWS, COLS = 5, 60
 LAYOUT_KEYS = ("flip_rows", "serpentine", "reverse")
 DEFAULT_CONTROL = {"mode": "monitor", "color": [255, 255, 255], "brightness": 80, "speed": 5,
@@ -75,7 +76,10 @@ def update_control(patch):
         rgb = say.get("rgb") if isinstance(say.get("rgb"), list) and len(say["rgb"]) == 3 else ctl["color"]
         # the id is how the daemon knows this is a new message to play
         ctl["say"] = {"text": str(say["text"]).strip()[:160], "id": int(time.time() * 1000),
-                      "rgb": [max(0, min(255, int(v))) for v in rgb]}
+                      "rgb": [max(0, min(255, int(v))) for v in rgb],
+                      "style": say.get("style") if say.get("style") in SAY_STYLES else "plain",
+                      "speed": max(1, min(10, int(say.get("speed") or ctl.get("speed", 5)))),
+                      "repeat": max(1, min(5, int(say.get("repeat") or 1)))}
     if "speed" in patch:
         ctl["speed"] = max(1, min(10, int(patch["speed"])))
     ctl["changed"] = time.time()
