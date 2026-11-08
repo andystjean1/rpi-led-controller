@@ -137,13 +137,14 @@ def render(strip, ctl, laptops, t, dt, state, claude=None, events=()):
         except (TypeError, ValueError):
             rgb, speed = (255, 255, 255), 5
         ctx = {"t": t, "dt": dt, "rgb": rgb, "speed": speed, "laptops": laptops, "state": state,
-               "claude": claude, "events": list(events)}
+               "claude": claude, "events": list(events), "text": ctl.get("text", ""), "say": ctl.get("say")}
         effects.MODES.get(mode, effects.monitor)(cv, ctx)
         if ctl.get("alerts", True):
             if mode in effects.EFFECTS:
                 effects.alert_overlay(cv, ctx)  # the monitor modes show laptop problems themselves
             if mode not in ("claude_lanes", "claude_drones"):
                 effects.waiting_overlay(cv, ctx)  # those two already show a waiting session
+        effects.say_overlay(cv, ctx)  # a sent message scrolls over everything, once
     flush(strip, cv, layout)
 
 

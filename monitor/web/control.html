@@ -42,6 +42,8 @@ button.mode small { display: block; font-weight: 400; font-size: 11px; color: va
 .row label { width: 84px; color: var(--muted); font-size: 14px; }
 .row output { width: 34px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
 input[type=range] { flex: 1; min-height: 36px; accent-color: var(--accent); }
+input[type=text] { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--raised);
+  color: var(--text); font: inherit; padding: 0 12px; }
 input[type=color] { width: 100%; height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--raised); padding: 2px; }
 .cal-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
 #calInfo { font-size: 14px; font-variant-numeric: tabular-nums; }
@@ -69,6 +71,16 @@ table.cal tr:first-child td { height: 18px; border: 0; background: none; }
   <section>
     <h2>Mode</h2>
     <div class="grid" id="modes"></div>
+  </section>
+
+  <section>
+    <h2>Message</h2>
+    <input type="text" id="msg" maxlength="160" placeholder="Type something to show on the wall" autocomplete="off" enterkeyhint="send">
+    <div class="btns">
+      <button id="sayOnce">Scroll once</button>
+      <button id="sayBanner">Banner (loops)</button>
+    </div>
+    <p class="hint">Scroll once plays over whatever is running, in the chosen color. Banner switches to the Banner mode and repeats.</p>
   </section>
 
   <section id="colorSec">
@@ -119,11 +131,11 @@ const GROUPS = [
     ["scanner", "Scanner", "Knight Rider"], ["wave", "Wave", "sine"], ["twinkle", "Twinkle", "stars"],
     ["chase", "Chase", "comet"], ["breathe", "Breathe", "fade"], ["solid", "Solid", "one color"],
   ]],
-  ["Other", [["off", "Off", "dark"], ["calibrate", "Calibrate", "pixel grid"]]],
+  ["Other", [["text", "Banner", "scrolling text"], ["off", "Off", "dark"], ["calibrate", "Calibrate", "pixel grid"]]],
 ];
-const USES_COLOR = ["solid", "chase", "breathe", "wave", "scanner", "twinkle", "meteor"];
+const USES_COLOR = ["solid", "chase", "breathe", "wave", "scanner", "twinkle", "meteor", "text"];
 const USES_SPEED = ["rainbow", "chase", "breathe", "plasma", "aurora", "fire", "matrix", "meteor", "scanner",
-  "wave", "twinkle", "monitor", "claude_lanes", "claude_drones"];
+  "wave", "twinkle", "monitor", "claude_lanes", "claude_drones", "text"];
 const ROWS = 5, COLS = 60;
 const COLORS = ["#ff0000", "#ff7a00", "#ffd000", "#00e060", "#00c8ff", "#3a5bff", "#a020ff", "#ff2fa0", "#ffffff", "#ff9a40", "#40ffd0", "#8040ff"];
 const $ = id => document.getElementById(id);
@@ -247,8 +259,11 @@ $("bright").oninput = e => send({ brightness: +e.target.value });
 $("speed").oninput = e => send({ speed: +e.target.value });
 $("picker").oninput = e => send({ color: rgb(e.target.value), mode: USES_COLOR.includes(state.mode) ? state.mode : "solid" });
 $("alerts").onchange = e => send({ alerts: e.target.checked });
+$("sayOnce").onclick = () => { const t = $("msg").value.trim(); if (t) send({ say: { text: t, rgb: state.color } }); };
+$("sayBanner").onclick = () => { const t = $("msg").value.trim(); if (t) send({ text: t, mode: "text" }); };
+$("msg").onkeydown = e => { if (e.key === "Enter") $("sayOnce").click(); };
 
-fetch("/api/strip").then(r => r.json()).then(s => { state = s; draw(); })
+fetch("/api/strip").then(r => r.json()).then(s => { state = s; $("msg").value = s.text || ""; draw(); })
   .catch(() => say("Couldn't load settings from the Pi", true));
 </script>
 </body>

@@ -14,6 +14,8 @@ ctx keys:
            or None when the poller's state file is stale or missing
   claude   {"sessions": [{"id", "name", "state", "subs"}]} from Agent Town, or None when it is quiet
   events   Claude tool calls since the previous frame: [{"s": session id, "k": kind}]
+  text     the banner string for the text mode
+  say      {"text", "rgb", "id"}: a one-shot message to scroll over any mode
   state    dict that persists between frames (fire heat, rain drops, stars)
 """
 import math
@@ -461,6 +463,98 @@ def waiting_overlay(cv, ctx):
     return True
 
 
+# ---------------------------------------------------------------- text
+
+# A 5-pixel-tall font. Each glyph is five rows of "#" and "."; most are 3 wide, a few are wider.
+_FONT = {
+    "A": (".#.", "#.#", "###", "#.#", "#.#"), "B": ("##.", "#.#", "##.", "#.#", "##."),
+    "C": (".##", "#..", "#..", "#..", ".##"), "D": ("##.", "#.#", "#.#", "#.#", "##."),
+    "E": ("###", "#..", "##.", "#..", "###"), "F": ("###", "#..", "##.", "#..", "#.."),
+    "G": (".##", "#..", "#.#", "#.#", ".##"), "H": ("#.#", "#.#", "###", "#.#", "#.#"),
+    "I": ("###", ".#.", ".#.", ".#.", "###"), "J": ("..#", "..#", "..#", "#.#", ".#."),
+    "K": ("#.#", "#.#", "##.", "#.#", "#.#"), "L": ("#..", "#..", "#..", "#..", "###"),
+    "M": ("#...#", "##.##", "#.#.#", "#...#", "#...#"), "N": ("#..#", "##.#", "#.##", "#..#", "#..#"),
+    "O": (".#.", "#.#", "#.#", "#.#", ".#."), "P": ("##.", "#.#", "##.", "#..", "#.."),
+    "Q": (".#.", "#.#", "#.#", "###", "..#"), "R": ("##.", "#.#", "##.", "#.#", "#.#"),
+    "S": (".##", "#..", ".#.", "..#", "##."), "T": ("###", ".#.", ".#.", ".#.", ".#."),
+    "U": ("#.#", "#.#", "#.#", "#.#", "###"), "V": ("#.#", "#.#", "#.#", "#.#", ".#."),
+    "W": ("#...#", "#...#", "#.#.#", "##.##", "#...#"), "X": ("#.#", "#.#", ".#.", "#.#", "#.#"),
+    "Y": ("#.#", "#.#", ".#.", ".#.", ".#."), "Z": ("###", "..#", ".#.", "#..", "###"),
+    "0": ("###", "#.#", "#.#", "#.#", "###"), "1": (".#.", "##.", ".#.", ".#.", "###"),
+    "2": ("##.", "..#", ".#.", "#..", "###"), "3": ("##.", "..#", ".#.", "..#", "##."),
+    "4": ("#.#", "#.#", "###", "..#", "..#"), "5": ("###", "#..", "##.", "..#", "##."),
+    "6": (".##", "#..", "###", "#.#", "###"), "7": ("###", "..#", ".#.", ".#.", ".#."),
+    "8": ("###", "#.#", "###", "#.#", "###"), "9": ("###", "#.#", "###", "..#", "##."),
+    " ": ("..", "..", "..", "..", ".."), ".": (".", ".", ".", ".", "#"), ",": (".", ".", ".", "#", "#"),
+    ":": (".", "#", ".", "#", "."), "!": ("#", "#", "#", ".", "#"), "?": ("##.", "..#", ".#.", "...", ".#."),
+    "-": ("...", "...", "###", "...", "..."), "+": ("...", ".#.", "###", ".#.", "..."),
+    "=": ("...", "###", "...", "###", "..."), "/": ("..#", "..#", ".#.", "#..", "#.."),
+    "%": ("#.#", "..#", ".#.", "#..", "#.#"), "'": ("#", "#", ".", ".", "."),
+    "(": (".#", "#.", "#.", "#.", ".#"), ")": ("#.", ".#", ".#", ".#", "#."),
+    "#": ("#.#", "###", "#.#", "###", "#.#"), "_": ("...", "...", "...", "...", "###"),
+    "*": ("#.#", ".#.", "###", ".#.", "#.#"), ">": ("#..", ".#.", "..#", ".#.", "#.."),
+    "<": ("..#", ".#.", "#..", ".#.", "..#"), "&": (".#.", "#.#", ".#.", "#.#", ".##"),
+}
+_text_cache = {}
+
+
+def text_columns(text):
+    """The message as a list of columns, each a tuple of five 0/1 (top to bottom); one blank column
+    between letters. Lower case is shown as capitals, unknown characters as '?'."""
+    text = str(text)[:160]
+    if text not in _text_cache:
+        cols = []
+        for ch in text.upper():
+            glyph = _FONT.get(ch, _FONT["?"])
+            for j in range(len(glyph[0])):
+                cols.append(tuple(1 if glyph[r][j] == "#" else 0 for r in range(ROWS)))
+            cols.append((0,) * ROWS)
+        if len(_text_cache) > 50:
+            _text_cache.clear()
+        _text_cache[text] = cols
+    return _text_cache[text]
+
+
+def _draw_text(cv, cols, x0, rgb):
+    for j, col in enumerate(cols):
+        c = x0 + j
+        if 0 <= c < COLS:
+            for r in range(ROWS):
+                if col[r]:
+                    cv[r][c] = rgb
+
+
+def banner(cv, ctx):
+    """The banner text from the phone, scrolling round and round."""
+    cols = text_columns(ctx.get("text") or "HELLO")
+    offset = int(ctx["t"] * (8 + ctx["speed"] * 3)) % (len(cols) + COLS)
+    _draw_text(cv, cols, COLS - offset, tuple(ctx["rgb"]))
+
+
+def say_overlay(cv, ctx):
+    """A message sent with {"say": {...}} scrolls across once over whatever mode is running, then
+    the mode comes back. A message already stored when the daemon starts is not replayed."""
+    st, say = ctx["state"], ctx.get("say")
+    sid = say.get("id") if isinstance(say, dict) else None
+    if "say_init" not in st:
+        st.update(say_init=True, say_id=sid, say_t0=None)
+    elif sid is not None and sid != st["say_id"]:
+        st.update(say_id=sid, say_t0=ctx["t"])
+    t0 = st.get("say_t0")
+    if t0 is None or not isinstance(say, dict):
+        return False
+    cols = text_columns(say.get("text", ""))
+    x0 = COLS - int((ctx["t"] - t0) * (8 + ctx["speed"] * 3))
+    if x0 + len(cols) < 0:
+        st["say_t0"] = None
+        return False
+    for r in range(ROWS):
+        cv[r] = [BLACK] * COLS
+    rgb = tuple(say.get("rgb") or (255, 255, 255))
+    _draw_text(cv, cols, x0, rgb)
+    return True
+
+
 EFFECTS = {
     "solid": solid, "breathe": breathe, "rainbow": rainbow, "chase": chase, "plasma": plasma,
     "aurora": aurora, "wave": wave, "scanner": scanner, "twinkle": twinkle, "meteor": meteor,
@@ -468,4 +562,4 @@ EFFECTS = {
 }
 MONITORS = {"monitor": monitor, "rack": rack, "vitals": vitals}
 CLAUDE = {"claude_lanes": claude_lanes, "claude_drones": claude_drones, "claude_meter": claude_meter}
-MODES = {**EFFECTS, **MONITORS, **CLAUDE}
+MODES = {**EFFECTS, **MONITORS, **CLAUDE, "text": banner}
