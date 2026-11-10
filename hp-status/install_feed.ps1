@@ -14,6 +14,7 @@ $taskName = 'status-feed'
 if (-not (Test-Path $python)) { "ABORT: $python not found"; exit 3 }
 New-Item -ItemType Directory -Force $dir | Out-Null
 Copy-Item (Join-Path $PSScriptRoot 'status_server.py') $dir -Force
+Copy-Item (Join-Path $PSScriptRoot 'shadow_counts.py') $dir -Force
 
 if (-not (Get-NetFirewallRule -DisplayName $taskName -ErrorAction SilentlyContinue)) {
     New-NetFirewallRule -DisplayName $taskName -Direction Inbound -Protocol TCP -LocalPort $port `

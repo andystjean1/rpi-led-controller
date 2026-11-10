@@ -165,11 +165,18 @@ class Store:
                     "host_vitals": good.get("host_vitals", {}),
                     "uptime_min": good.get("uptime_min"),
                     "clock_skew_s": good.get("clock_skew_s"),
+                    "shadow_at": (good.get("shadow") or {}).get("generated"),
                     "services": good.get("services", []),
                     "apps": good.get("apps", []),
                     "addr": good.get("addr"),
                 })
             return {"now": _now(), "hosts": hosts, "last_event_id": self._next_id - 1}
+
+    def shadow(self, label):
+        """The shadow-run run counts from a laptop's last good poll (None if it sends none)."""
+        with self._lock:
+            h = self._hosts.get(label)
+            return ((h or {}).get("good") or {}).get("shadow")
 
     def events(self, since=0):
         """Events with id > since, oldest first."""

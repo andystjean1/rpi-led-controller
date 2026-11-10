@@ -8,6 +8,7 @@
     /api/strip     GET the strip's control settings; POST JSON to change them (LAN only, no login)
     /api/claude    POST Claude Code activity from Agent Town (sessions + tool-call events + a coarse
                    PC health block); GET for debugging
+    /api/shadow    GET the PC-vs-HP collector comparison; POST the PC's run counts (hp-status/shadow_counts.py --push)
     /api/frame     the frame the strip is showing right now (raw RGB bytes, 5x60x3) for the live preview
 Standard library only.
 """
@@ -18,6 +19,9 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
+import shadow
+
+SHADOW_HP = "DESKTOP-06CD787"  # the laptop whose run counts are compared with the PC's
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 PAGE = os.path.join(WEB_DIR, "index.html")
 # URL path -> (file in web/, content type). iOS asks for the apple-touch-icon paths by default.
@@ -245,6 +249,8 @@ def make_server(store, port):
                     self._send(503, b"the strip daemon is not drawing", "text/plain")
                 else:
                     self._send(200, frame, "application/octet-stream")
+            elif url.path == "/api/shadow":
+                self._json(shadow.compare(shadow.load_pc(), store.shadow(SHADOW_HP)))
             elif url.path == "/api/state":
                 self._json(store.snapshot())
             elif url.path == "/api/events":
@@ -258,15 +264,18 @@ def make_server(store, port):
 
         def do_POST(self):
             path = urlparse(self.path).path
-            if path not in ("/api/strip", "/api/claude"):
+            if path not in ("/api/strip", "/api/claude", "/api/shadow"):
                 self._send(404, b"not found", "text/plain")
                 return
             try:
-                size = min(int(self.headers.get("Content-Length", "0")), 16384)
+                size = min(int(self.headers.get("Content-Length", "0")), 16384 if path != "/api/shadow" else 1 << 20)
                 patch = json.loads(self.rfile.read(size) or b"{}")
                 if not isinstance(patch, dict):
                     raise ValueError("expected an object")
-                if path == "/api/claude":
+                if path == "/api/shadow":
+                    shadow.save_pc(patch)
+                    self._json({"ok": True})
+                elif path == "/api/claude":
                     update_claude(patch)
                     self._json({"ok": True})
                 else:

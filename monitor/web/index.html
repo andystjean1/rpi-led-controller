@@ -121,7 +121,33 @@ h2 { margin: 0; font-size: 17px; font-weight: 650; }
 .ev.bad .tag { color: var(--bad); }
 .empty { color: var(--muted); padding: 18px 0 4px; margin: 0; }
 
+.shadowcard { margin-top: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+.shadowcard .lead { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 0 6px; }
+.sp { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.sp-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.sp-head h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.sp-head .nums { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.sp svg { display: block; width: 100%; height: auto; margin-top: 8px; }
+.sp .tl-bg { fill: var(--raised); }
+.sp .tl-grid { stroke: var(--line); stroke-width: 1; }
+.sp .tl-lbl { fill: var(--muted); font: 10px system-ui, sans-serif; }
+.sp .t-same { fill: var(--ok); }
+.sp .t-diff { fill: var(--warn); }
+.sp .t-pc { fill: var(--bad); }
+.sp .t-hp { fill: var(--info); }
+.sp .dz { stroke: var(--muted); stroke-width: 1; }
+.sp-err { color: var(--warn); font-size: 12px; margin: 6px 0 0; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 14px; color: var(--muted); font-size: 12px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.checks { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.checks li::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; background: var(--muted); }
+.checks li.ok::before { background: var(--ok); }
+.checks li.warn::before { background: var(--warn); }
+.checks li.bad::before { background: var(--bad); }
+
 @media (max-width: 560px) {
+  .tiles { grid-template-columns: repeat(2, 1fr); }
   .vitals { grid-template-columns: repeat(2, 1fr); }
   .ev { grid-template-columns: 92px 1fr; }
   .ev .who { grid-column: 2; justify-self: start; }
@@ -140,6 +166,20 @@ h2 { margin: 0; font-size: 17px; font-weight: 650; }
   </header>
 
   <section class="cards" id="cards" aria-label="Laptops"></section>
+
+  <section class="shadowcard" id="shadow" aria-label="Shadow run comparison" hidden>
+    <h2>Shadow run: PC vs HP</h2>
+    <p class="lead" id="shadowLead"></p>
+    <div class="tiles" id="shadowTiles"></div>
+    <ul class="checks" id="shadowChecks"></ul>
+    <div id="shadowProjects"></div>
+    <div class="legend" id="shadowLegend">
+      <span><i style="background:var(--ok)"></i>both ran, counts equal</span>
+      <span><i style="background:var(--warn)"></i>both ran, counts differ</span>
+      <span><i style="background:var(--bad)"></i>PC ran, HP missed</span>
+      <span><i style="background:var(--info)"></i>HP ran, PC did not</span>
+    </div>
+  </section>
 
   <section class="feedcard" aria-label="Event feed">
     <div class="feedhead">
@@ -294,6 +334,125 @@ function renderCards() {
   document.title = (bad ? "(!) " : warn ? "(~) " : "") + "Laptop Monitor";
 }
 
+// ---- shadow run: PC vs HP ----
+const SVGNS = "http://www.w3.org/2000/svg";
+function svg(tag, attrs, text) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  return e;
+}
+const pct = (v) => (v == null ? "—" : v + "%");
+const TICK = { same: "t-same", diff: "t-diff", pc: "t-pc", hp: "t-hp" };
+
+function timeline(p, t0, t1) {
+  // 720 x 54: ticks across the window, day lines and labels underneath. Misses are taller so they
+  // read without colour.
+  const W = 720, H = 54, top = 4, base = 36;
+  const x = (iso) => Math.max(1, Math.min(W - 2, ((new Date(iso) - t0) / (t1 - t0)) * W));
+  const s = svg("svg", { viewBox: "0 0 " + W + " " + H, role: "img",
+    "aria-label": p.name + " run timeline: " + p.matched + " matched, " + p.hp_missed + " missed by the HP, " + p.pc_missed + " only on the HP" });
+  s.append(svg("rect", { class: "tl-bg", x: 0, y: top, width: W, height: base - top, rx: 4 }));
+  const day = new Date(t0); day.setHours(24, 0, 0, 0);
+  for (; day < t1; day.setDate(day.getDate() + 1)) {
+    const gx = x(day.toISOString());
+    s.append(svg("line", { class: "tl-grid", x1: gx, x2: gx, y1: top, y2: base + 4 }));
+    s.append(svg("text", { class: "tl-lbl", x: gx + 3, y: H - 6 }, day.toLocaleDateString([], { weekday: "short", day: "numeric" })));
+  }
+  p.points.forEach((pt) => {
+    const kind = pt.k === "both" ? (pt.same ? "same" : "diff") : pt.k;
+    const tall = pt.k === "pc" || pt.k === "hp";
+    const r = svg("rect", { class: TICK[kind], x: x(pt.t) - 1, width: 2.5, y: tall ? top : top + 8, height: tall ? base - top : base - top - 16, rx: 1 });
+    const tt = svg("title", {}, new Date(pt.t).toLocaleString() + " · " + ({ same: "both ran, counts equal", diff: "both ran, counts differ", pc: "PC ran, HP missed", hp: "HP ran, PC did not" })[kind]);
+    r.append(tt);
+    s.append(r);
+  });
+  s.append(svg("text", { class: "tl-lbl", x: W - 2, y: H - 6, "text-anchor": "end" }, "now"));
+  return s;
+}
+
+function deltaStrip(p) {
+  // One bar per matched run: how far the HP's line count sits from the PC's (up = HP has more).
+  const rows = p.deltas.filter((d) => d.diff.line_rows != null || d.same);
+  if (rows.length < 2) return null;
+  const W = 720, H = 44, mid = 22;
+  const vals = rows.map((d) => d.diff.line_rows || 0);
+  const mx = Math.max(3, ...vals.map(Math.abs));
+  const s = svg("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": p.name + ": line-count difference per matched run, HP minus PC" });
+  s.append(svg("line", { class: "dz", x1: 0, x2: W, y1: mid, y2: mid }));
+  const bw = Math.max(2, Math.min(14, W / rows.length - 2));
+  rows.forEach((d, i) => {
+    const v = vals[i], h = (Math.abs(v) / mx) * (mid - 3);
+    const r = svg("rect", { class: v === 0 ? "t-same" : "t-diff", x: (i / rows.length) * W, width: bw, y: v >= 0 ? mid - Math.max(h, 1.5) : mid, height: Math.max(h, 1.5), rx: 1 });
+    r.append(svg("title", {}, new Date(d.t).toLocaleString() + " · HP minus PC: " + (v > 0 ? "+" : "") + v + " lines"));
+    s.append(r);
+  });
+  return s;
+}
+
+function checkItem(level, text) { const li = el("li", level, text); return li; }
+
+function renderShadow(d) {
+  const box = $("#shadow");
+  box.hidden = false;
+  if (!d.ready) {
+    $("#shadowLead").textContent = d.why;
+    for (const id of ["#shadowTiles", "#shadowChecks", "#shadowProjects"]) $(id).replaceChildren();
+    $("#shadowLegend").hidden = true;
+    return;
+  }
+  $("#shadowLegend").hidden = false;
+  const ps = d.projects;
+  const sum = (k) => ps.reduce((a, p) => a + p[k], 0);
+  const pcRuns = sum("pc_runs"), matched = sum("matched"), hpMissed = sum("hp_missed"), shifted = sum("shifted"), pcMissed = sum("pc_missed"), agree = sum("agree");
+  const cov = pcRuns ? Math.round((1000 * matched) / pcRuns) / 10 : null;
+  const agr = matched ? Math.round((1000 * agree) / matched) / 10 : null;
+  $("#shadowLead").textContent = "Collector runs since " + new Date(d.since).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) +
+    " (" + (d.hours != null ? span(d.hours * 3600) : "?") + " in). A PC run and an HP run pair up when they fall within " + d.match_minutes +
+    " minutes. PC counts pushed " + rel(new Date(Date.now() - d.pc_age_min * 60000).toISOString()) + ".";
+
+  $("#shadowTiles").replaceChildren(
+    stat("HP coverage", pct(cov), cov == null ? null : { pct: cov, level: cov >= 95 ? "" : cov >= 85 ? "warn" : "bad" }),
+    stat("Counts agree", pct(agr), agr == null ? null : { pct: agr, level: agr >= 70 ? "" : "warn" }),
+    stat("HP missed", String(hpMissed)),
+    stat("HP-only runs", String(pcMissed)));
+
+  const checks = $("#shadowChecks");
+  checks.replaceChildren(
+    checkItem(cov == null ? "warn" : cov >= 95 ? "ok" : cov >= 85 ? "warn" : "bad",
+      "The HP caught " + matched + " of the PC's " + pcRuns + " runs (" + pct(cov) + "; target 95%+)."),
+    checkItem(shifted ? "warn" : "ok", shifted
+      ? shifted + " of the HP's misses have an HP run within 90 minutes: the same snapshots on a shifted schedule (check the HP tasks' start times), not lost data."
+      : "No misses that look like a schedule offset."),
+    checkItem("ok", pcMissed - shifted > 0
+      ? "The HP ran " + (pcMissed - shifted) + " time" + (pcMissed - shifted === 1 ? "" : "s") + " the PC did not, with nothing nearby (the PC asleep or off, which is what the move is for)."
+      : "No runs the PC missed so far."),
+    checkItem(d.pc_stale ? "warn" : "ok", d.pc_stale
+      ? "The PC's counts are stale: it is off or its push task stopped, so recent misses may be wrong."
+      : "The PC's counts are fresh."),
+    checkItem(d.hours != null && d.hours >= 48 ? "ok" : "warn",
+      (d.hours != null && d.hours >= 48 ? "Run for 48h+ (" : "Under 48h so far (") + (d.hours != null ? span(d.hours * 3600) : "?") + ")."));
+
+  const t0 = new Date(d.since), t1 = new Date();
+  const wrap = $("#shadowProjects");
+  wrap.replaceChildren(...ps.map((p) => {
+    const sec = el("div", "sp");
+    const head = el("div", "sp-head");
+    head.append(el("h3", null, p.name),
+      el("span", "nums", "coverage " + pct(p.coverage_pct) + " · " + p.matched + "/" + p.pc_runs + " runs · counts agree " + pct(p.agree_pct) +
+        (p.hp_missed ? " · HP missed " + p.hp_missed : "") + (p.pc_missed ? " · HP-only " + p.pc_missed : "")));
+    sec.append(head, timeline(p, t0, t1));
+    const ds = deltaStrip(p);
+    if (ds) sec.append(el("p", "lead", "Line rows, HP minus PC, per matched run"), ds);
+    p.errors.forEach((e) => sec.append(el("p", "sp-err", "Read error: " + e)));
+    return sec;
+  }));
+}
+
+async function refreshShadow() {
+  try { renderShadow(await getJSON("/api/shadow")); } catch (err) { /* the main refresh shows the connection state */ }
+}
+
 function dayLabel(d) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const that = new Date(d); that.setHours(0, 0, 0, 0);
@@ -384,7 +543,9 @@ $("#f-problems").addEventListener("click", () => { state.problemsOnly = true; se
 $("#f-runs").addEventListener("click", () => { state.showRuns = !state.showRuns; setFilters(); });
 
 refresh();
+refreshShadow();
 setInterval(refresh, 5000);
+setInterval(refreshShadow, 60000);
 setInterval(renderLive, 1000);
 </script>
 </body>

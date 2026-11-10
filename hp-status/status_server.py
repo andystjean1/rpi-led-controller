@@ -172,6 +172,23 @@ def check_apps():
         return list(pool.map(check_app, APPS))
 
 
+SHADOW_HOSTS = ("DESKTOP-06CD787",)  # machines running the sports shadow run
+SHADOW_CACHE_SECONDS = 120
+_shadow = {"at": 0.0, "body": None}
+
+
+def shadow_block():
+    """This machine's collector run counts for the Pi's shadow-run comparison. Never fails the feed."""
+    if time.time() - _shadow["at"] > SHADOW_CACHE_SECONDS:
+        try:
+            import shadow_counts  # copied next to this file by install_feed.ps1
+            _shadow["body"] = shadow_counts.collect(PROJECTS)
+        except Exception as exc:
+            _shadow["body"] = {"projects": {}, "error": str(exc)[:120]}
+        _shadow["at"] = time.time()
+    return _shadow["body"]
+
+
 def build_status():
     now = datetime.now(timezone.utc)
     problems = []
@@ -208,7 +225,8 @@ def build_status():
         host_level = "warn" if host_level == "ok" else host_level
 
     apps = check_apps()
-    order = {"ok": 0, "idle": 0, "warn": 1, "bad": 2}
+    shadow = shadow_block() if os.environ.get("COMPUTERNAME") in SHADOW_HOSTS else None
+    order ={"ok": 0, "idle": 0, "warn": 1, "bad": 2}
     worst = max([host_level] + [s["level"] for s in services] + [a["level"] for a in apps], key=lambda l: order[l])
     attention = [s["name"] for s in services if s["level"] in ("warn", "bad")]
     attention += [a["name"] for a in apps if a["level"] != "ok"]
@@ -221,6 +239,7 @@ def build_status():
         "host_vitals": {"level": host_level, "disk_free_pct": disk_free_pct, "problems": problems},
         "services": services,
         "apps": apps,
+        "shadow": shadow,
     }
 
 
