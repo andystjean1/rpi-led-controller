@@ -21,7 +21,9 @@ PC_ROOT = r"C:\Users\Andy\Projects"
 HP_ROOT = r"C:\Projects"
 # The HP's data was copied from the PC on the evening of 2026-11-06 and its tasks started then, so
 # anything earlier is shared history, not something the two machines collected separately.
-SHADOW_START = "2026-11-07T00:00:00+00:00"
+# Moved from 2026-11-07 on 2026-11-13: the HP's data was re-baselined from the PC at 13:25 local (18:25 UTC),
+# so it now holds the PC's earlier runs and only runs after this point say anything about HP coverage.
+SHADOW_START = "2026-11-13T18:30:00+00:00"
 
 # project folder -> (database file, runs table, time column, count columns worth comparing)
 SOURCES = {
