@@ -39,8 +39,19 @@ SERVICES_BY_HOST = {
         "touchdown-scorers-thu": ("touchdown-scorers", None),
         "touchdown-scorers-sun": ("touchdown-scorers", None),
     },
-    "DESKTOP-7MO22GL": {},  # Lenovo: no workload yet
+    # Lenovo: holds the nightly backup of the HP's data (pull_from_hp.py, 03:30). The task has no
+    # project data/ folder (so no data age); the backup_block() below checks the nights themselves.
+    "DESKTOP-7MO22GL": {
+        "hp-backup-pull": ("backups", 26 * 60),
+    },
 }
+
+# Machines holding the HP data backup, and where the nights live (one folder per night, each with
+# the status.json that pull_from_hp.py writes). A missing, failed or stale night makes the host bad/warn.
+BACKUP_HOSTS = ("DESKTOP-7MO22GL",)
+BACKUP_ROOT = r"C:\Projects\backups\hp"
+BACKUP_WARN_HOURS = 30  # the pull runs daily at 03:30 and takes about half an hour
+BACKUP_BAD_HOURS = 54   # two nights missed
 SERVICES = SERVICES_BY_HOST.get(os.environ.get("COMPUTERNAME", ""), {})
 
 # Apps that should answer an HTTP GET on this machine (checked from here, so loopback URLs):
@@ -172,6 +183,42 @@ def check_apps():
         return list(pool.map(check_app, APPS))
 
 
+def backup_block(now_ts):
+    """State of the newest finished backup night: {level, reason, night, age_hours, nights, failed}.
+
+    Read-only: lists the night folders and reads the newest status.json. A night that is incomplete
+    (some project failed or did not verify) is bad; one that is old enough is warn, then bad.
+    """
+    try:
+        nights = sorted(d for d in os.listdir(BACKUP_ROOT)
+                        if len(d) == 10 and os.path.isfile(os.path.join(BACKUP_ROOT, d, "status.json")))
+    except OSError as exc:
+        return {"level": "bad", "reason": "backup folder unreadable: %s" % str(exc)[:80],
+                "night": None, "age_hours": None, "nights": 0, "failed": []}
+    if not nights:
+        return {"level": "bad", "reason": "no finished backup night yet",
+                "night": None, "age_hours": None, "nights": 0, "failed": []}
+    newest = nights[-1]
+    path = os.path.join(BACKUP_ROOT, newest, "status.json")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            status = json.load(fh)
+        age = round((now_ts - os.stat(path).st_mtime) / 3600, 1)
+    except (OSError, ValueError) as exc:
+        return {"level": "bad", "reason": "status.json unreadable: %s" % str(exc)[:80],
+                "night": newest, "age_hours": None, "nights": len(nights), "failed": []}
+    failed = sorted(p for p, v in (status.get("projects") or {}).items() if not v.get("ok"))
+    level, reason = "ok", ""
+    if not status.get("all_ok") or failed:
+        level, reason = "bad", "night %s incomplete: %s" % (newest, ", ".join(failed) or "unknown")
+    elif age > BACKUP_BAD_HOURS:
+        level, reason = "bad", "newest night is %d h old" % age
+    elif age > BACKUP_WARN_HOURS:
+        level, reason = "warn", "newest night is %d h old" % age
+    return {"level": level, "reason": reason, "night": newest, "age_hours": age,
+            "nights": len(nights), "failed": failed}
+
+
 SHADOW_HOSTS = ("DESKTOP-06CD787",)  # machines running the sports shadow run
 SHADOW_CACHE_SECONDS = 120
 _shadow = {"at": 0.0, "body": None}
@@ -226,10 +273,16 @@ def build_status():
 
     apps = check_apps()
     shadow = shadow_block() if os.environ.get("COMPUTERNAME") in SHADOW_HOSTS else None
+    backup = backup_block(time.time()) if os.environ.get("COMPUTERNAME") in BACKUP_HOSTS else None
     order ={"ok": 0, "idle": 0, "warn": 1, "bad": 2}
-    worst = max([host_level] + [s["level"] for s in services] + [a["level"] for a in apps], key=lambda l: order[l])
+    levels = [host_level] + [s["level"] for s in services] + [a["level"] for a in apps]
+    if backup:
+        levels.append(backup["level"])
+    worst = max(levels, key=lambda l: order[l])
     attention = [s["name"] for s in services if s["level"] in ("warn", "bad")]
     attention += [a["name"] for a in apps if a["level"] != "ok"]
+    if backup and backup["level"] != "ok":
+        attention.append("HP backup (%s)" % backup["reason"])
     return {
         "host": os.environ.get("COMPUTERNAME", "unknown"),
         "time": now.isoformat(),  # the Pi compares this with its own clock
@@ -240,6 +293,7 @@ def build_status():
         "services": services,
         "apps": apps,
         "shadow": shadow,
+        "backup": backup,
     }
 
 
