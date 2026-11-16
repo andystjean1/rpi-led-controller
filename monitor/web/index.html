@@ -417,12 +417,43 @@ function renderShadow(d) {
     stat("HP missed", String(hpMissed)),
     stat("HP-only runs", String(pcMissed)));
 
+  // Picks parity: did both machines place the same bets? Missing picks are the serious case.
+  const pk = ps.filter((p) => p.picks);
+  const pkSum = (k) => pk.reduce((a, p) => a + p.picks[k], 0);
+  const pkMissing = pkSum("missing"), pkExtra = pkSum("extra"), pkStake = pkSum("stake_diff"), pkSame = pkSum("same"), pkPc = pkSum("pc");
+  const projName = (p) => p.name.replace("-edges", "").replace("touchdown-scorers", "NFL");
+  const pickCheck = !pk.length
+    ? checkItem("warn", "Picks parity unknown: a feed is not sending its pick lists yet.")
+    : pkMissing
+      ? checkItem("bad", "The HP is missing " + pkMissing + " pick" + (pkMissing === 1 ? "" : "s") + " the PC placed (" +
+          pk.filter((p) => p.picks.missing).map((p) => projName(p) + " " + p.picks.missing).join(", ") + "). Check the HP's schedule for that sport.")
+      : (pkExtra || pkStake)
+        ? checkItem("warn", "Same picks where both placed one; " + (pkExtra ? pkExtra + " only on the HP" : "") + (pkExtra && pkStake ? ", " : "") +
+            (pkStake ? pkStake + " with different stakes (bankroll drift)" : "") + ".")
+        : checkItem("ok", "All " + pkPc + " of the PC's picks since the start are on the HP, same size.");
+
+  // Schedule: the HP's next fire times against the spec, and weekly runs that landed off their slot.
+  const sch = d.schedule || { hp_next: [], off_slot: { pc: [], hp: [] } };
+  const hpWrong = sch.hp_next.filter((x) => x.ok === false);
+  const offSlot = (side) => sch.off_slot[side].map((x) => x.tag + " " + new Date(x.t).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }) + " (" + (x.dev_min > 0 ? "+" : "") + x.dev_min + " min)").join(", ");
+  const schedChecks = [
+    checkItem(hpWrong.length ? "bad" : sch.hp_next.some((x) => x.ok) ? "ok" : "warn", hpWrong.length
+      ? "HP schedule is off the spec: " + hpWrong.map((x) => x.task.replace("touchdown-scorers-", "NFL ") + " fires " + x.next + " (spec " + x.want + ")").join("; ") + "."
+      : sch.hp_next.some((x) => x.ok) ? "The HP's weekly and nightly tasks fire at their spec times." : "The HP has not reported its tasks' next run times yet."),
+  ];
+  if (sch.off_slot.hp.length) schedChecks.push(checkItem("bad", "HP weekly runs off their slot in the last 3 days: " + offSlot("hp") + ". Picks are decided at the last run before kickoff, so this decides the wrong games."));
+  if (sch.off_slot.pc.length) schedChecks.push(checkItem("warn", "PC weekly runs off their slot in the last 3 days: " + offSlot("pc") + " (usually the PC waking late)."));
+
   const checks = $("#shadowChecks");
   checks.replaceChildren(
     checkItem(cov == null ? "warn" : cov >= 95 ? "ok" : cov >= 85 ? "warn" : "bad",
       "The HP caught " + matched + " of the PC's " + pcRuns + " runs (" + pct(cov) + "; target 95%+)."),
+    pickCheck,
+    ...schedChecks,
     checkItem(shifted ? "warn" : "ok", shifted
-      ? shifted + " of the HP's misses have an HP run within 90 minutes: the same snapshots on a shifted schedule (check the HP tasks' start times), not lost data."
+      ? shifted + " of the HP's misses have an HP run nearby: the same snapshots on a shifted schedule" +
+        (ps.filter((p) => p.shift_min != null).length ? " (" + ps.filter((p) => p.shift_min != null).map((p) => projName(p) + " " + (p.shift_min > 0 ? "+" : "") + p.shift_min + " min").join(", ") + ")" : "") +
+        ", not lost data. Check the HP tasks' start times."
       : "No misses that look like a schedule offset."),
     checkItem("ok", pcMissed - shifted > 0
       ? "The HP ran " + (pcMissed - shifted) + " time" + (pcMissed - shifted === 1 ? "" : "s") + " the PC did not, with nothing nearby (the PC asleep or off, which is what the move is for)."
@@ -440,7 +471,8 @@ function renderShadow(d) {
     const head = el("div", "sp-head");
     head.append(el("h3", null, p.name),
       el("span", "nums", "coverage " + pct(p.coverage_pct) + " · " + p.matched + "/" + p.pc_runs + " runs · counts agree " + pct(p.agree_pct) +
-        (p.hp_missed ? " · HP missed " + p.hp_missed : "") + (p.pc_missed ? " · HP-only " + p.pc_missed : "")));
+        (p.hp_missed ? " · HP missed " + p.hp_missed : "") + (p.pc_missed ? " · HP-only " + p.pc_missed : "") +
+        (p.picks ? " · picks " + p.picks.same + "/" + p.picks.pc + " match" + (p.picks.missing ? ", HP missing " + p.picks.missing : "") : "")));
     sec.append(head, timeline(p, t0, t1));
     const ds = deltaStrip(p);
     if (ds) sec.append(el("p", "lead", "Line rows, HP minus PC, per matched run"), ds);

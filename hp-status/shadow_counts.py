@@ -13,6 +13,7 @@ import json
 import os
 import socket
 import sqlite3
+import subprocess
 import sys
 import urllib.request
 from datetime import datetime, timezone
@@ -54,8 +55,67 @@ def _runs(db_path, table, time_col, count_cols, since):
         con.close()
 
 
+# project folder -> [(picks table, key columns that identify one bet)]. Parlay tickets are left out: their
+# price differs between machines by design, so they have no stable key.
+PICK_SOURCES = {
+    "nba-edges": [("picks", ("game_id", "market", "side", "line")),
+                  ("prop_picks", ("game_id", "athlete_id", "stat", "side", "line"))],
+    "ncaab-edges": [("picks", ("game_id", "market", "side", "line"))],
+    "nhl-edges": [("picks", ("game_id", "market", "side", "line"))],
+    "cfb-edges": [("picks", ("game_id", "market", "side", "line"))],
+    "touchdown-scorers": [("picks", ("game_id", "gsis_id", "market", "side", "line"))],
+}
+
+# Scheduled tasks whose next fire time says whether the two machines run on the same clock times. Only
+# non-repeating ones: a 30-minute collector's next run is always within 30 minutes of the other's.
+# value = period in minutes the schedule repeats on (a weekly task fires once every 10080 minutes).
+SCHEDULE_TASKS = {
+    "touchdown-scorers-wed": 10080,
+    "touchdown-scorers-thu": 10080,
+    "touchdown-scorers-sun": 10080,
+    "projects-nightly-grade": 1440,
+}
+
+
+def _picks(db_path, sources, since):
+    """[{k, t, stake, book}] for every bet placed since `since`, one entry per (table, key)."""
+    con = sqlite3.connect("file:%s?mode=ro" % db_path.replace("\\", "/"), uri=True, timeout=5)
+    try:
+        out = []
+        for table, key_cols in sources:
+            have = {r[1] for r in con.execute('pragma table_info("%s")' % table)}
+            if not have:
+                continue
+            keys = [c for c in key_cols if c in have]
+            sel = ", ".join(keys + [c for c in ("placed_at", "stake", "book") if c in have])
+            for row in con.execute('select %s from "%s" where placed_at >= ? order by placed_at' % (sel, table), (since,)):
+                kv = dict(zip(keys + [c for c in ("placed_at", "stake", "book") if c in have], row))
+                key = table + "|" + "|".join("" if kv.get(c) is None else str(kv[c]) for c in keys)
+                out.append({"k": key, "t": kv.get("placed_at"), "stake": kv.get("stake"), "book": kv.get("book")})
+        return out
+    finally:
+        con.close()
+
+
+def _task_times():
+    """{task: next run in UTC (ISO) or None} for SCHEDULE_TASKS, via PowerShell. {} if that is unavailable."""
+    names = ",".join("'%s'" % n for n in SCHEDULE_TASKS)
+    script = (
+        "$o=@{}; foreach($n in @(%s)){ $t=Get-ScheduledTask -TaskName $n -EA SilentlyContinue; "
+        "if($t){ $i=$t|Get-ScheduledTaskInfo; $o[$n]=if($i.NextRunTime.Year -gt 2000){$i.NextRunTime.ToUniversalTime().ToString('o')}else{$null} } }; "
+        "ConvertTo-Json -InputObject $o -Compress" % names
+    )
+    try:
+        flags = 0x08000000 if os.name == "nt" else 0  # CREATE_NO_WINDOW: the PC runs this from a hidden task
+        res = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+                             capture_output=True, text=True, timeout=30, creationflags=flags)
+        return json.loads(res.stdout or "{}")
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return {}
+
+
 def collect(root, since=SHADOW_START):
-    """{project: {"runs": [{t, tag, n}], "error": str|None}} for every project that exists under root."""
+    """{project: {"runs": [...], "picks": [...], "error": str|None}, "tasks": {...}} for every project under root."""
     projects = {}
     for name, (db, table, time_col, cols) in SOURCES.items():
         path = os.path.join(root, name, "data", db)
@@ -65,11 +125,19 @@ def collect(root, since=SHADOW_START):
             projects[name] = {"runs": _runs(path, table, time_col, cols, since), "error": None}
         except sqlite3.Error as exc:
             projects[name] = {"runs": [], "error": str(exc)[:120]}
+            continue
+        if name in PICK_SOURCES:
+            try:
+                projects[name]["picks"] = _picks(path, PICK_SOURCES[name], since)
+            except sqlite3.Error as exc:
+                projects[name]["picks"] = None
+                projects[name]["error"] = ("picks: " + str(exc))[:120]
     return {
         "host": os.environ.get("COMPUTERNAME") or socket.gethostname(),
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "since": since,
         "projects": projects,
+        "tasks": _task_times(),
     }
 
 
