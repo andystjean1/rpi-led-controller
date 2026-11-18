@@ -236,6 +236,47 @@ def shadow_block():
     return _shadow["body"]
 
 
+# Repos the HP deploys from GitHub (sports-hub/scripts/deploy_hp.ps1). The feed only reports which
+# commit each one has checked out; the PC's audit compares that with what it pushed (board #73).
+CODE_REPOS = ("nba-edges", "ncaab-edges", "nhl-edges", "cfb-edges", "touchdown-scorers",
+              "parlay-edges", "sports-hub")
+
+
+def repo_head(repo):
+    """(branch, sha) checked out in one repo, read from .git directly: the feed runs as SYSTEM,
+    which git refuses to serve in a repo another user owns ("dubious ownership")."""
+    gitdir = os.path.join(PROJECTS, repo, ".git")
+    with open(os.path.join(gitdir, "HEAD"), encoding="utf-8") as fh:
+        head = fh.read().strip()
+    if not head.startswith("ref: "):
+        return None, head  # detached
+    ref = head[5:]
+    branch = ref.removeprefix("refs/heads/")
+    try:
+        with open(os.path.join(gitdir, *ref.split("/")), encoding="utf-8") as fh:
+            return branch, fh.read().strip()
+    except FileNotFoundError:
+        pass
+    with open(os.path.join(gitdir, "packed-refs"), encoding="utf-8") as fh:
+        for line in fh:
+            sha, _, name = line.strip().partition(" ")
+            if name == ref:
+                return branch, sha
+    return branch, None
+
+
+def code_block():
+    """{repo: {branch, head}} for the deployed repos; an unreadable repo gets an error instead."""
+    out = {}
+    for repo in CODE_REPOS:
+        try:
+            branch, sha = repo_head(repo)
+            out[repo] = {"branch": branch, "head": sha}
+        except OSError as exc:
+            out[repo] = {"branch": None, "head": None, "error": str(exc)[:100]}
+    return out
+
+
 def build_status():
     now = datetime.now(timezone.utc)
     problems = []
@@ -294,6 +335,7 @@ def build_status():
         "apps": apps,
         "shadow": shadow,
         "backup": backup,
+        "code": code_block() if os.environ.get("COMPUTERNAME") in SHADOW_HOSTS else None,
     }
 
 
