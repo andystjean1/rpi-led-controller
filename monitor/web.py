@@ -36,7 +36,7 @@ STATIC = {
 
 CONTROL_FILE = os.environ.get("STRIP_CONTROL", os.path.expanduser("~/hp-monitor/strip_control.json"))
 # Keep in step with effects.MODES (the root daemon's list) plus off and calibrate.
-MODES = ("homelab", "monitor", "rack", "vitals", "claude_lanes", "claude_drones", "claude_meter", "text",
+MODES = ("homelab", "rain", "conveyor", "monitor", "rack", "vitals", "claude_lanes", "claude_drones", "claude_meter", "text",
          "solid", "rainbow", "chase", "breathe", "plasma", "aurora", "wave", "scanner",
          "twinkle", "meteor", "fire", "matrix", "off", "calibrate")
 SAY_STYLES = ("plain", "rainbow", "flash", "wave", "shake", "fire", "disco", "siren", "sparkle")  # as effects.py
@@ -143,6 +143,35 @@ def read_claude():
 
 
 PC_LEVELS = ("ok", "idle", "warn", "bad")
+PIPE_LANES = ("nba", "ncaab", "nhl", "cfb", "td", "parlay")  # as effects.PIPE_RGB
+PIPE_STATES = ("ok", "late", "fail", "off")
+PIPE_STAGES = ("tick", "skip", "stored", "built", "picks", "posted")
+
+
+def _count(v, top=10000):
+    try:
+        return max(0, min(top, int(v or 0)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _clean_pipe(pipe):
+    """Per data pipeline: how far its latest run got and today's counts (rain/conveyor modes)."""
+    out = []
+    for row in pipe[:8] if isinstance(pipe, list) else []:
+        if not isinstance(row, dict) or row.get("k") not in PIPE_LANES:
+            continue
+        last = row.get("last")
+        if isinstance(last, dict) and last.get("stage") in PIPE_STAGES:
+            last = {"id": _count(last.get("id"), 2 ** 40), "stage": last["stage"],
+                    "picks": _count(last.get("picks"), 99), "err": bool(last.get("err"))}
+        else:
+            last = None
+        out.append({"k": row["k"], "st": row.get("st") if row.get("st") in PIPE_STATES else "off",
+                    "run": bool(row.get("run")), "ticks": _count(row.get("ticks"), 500),
+                    "stored": _count(row.get("stored"), 500), "picks": _count(row.get("picks"), 999),
+                    "posts": _count(row.get("posts"), 500), "errors": _count(row.get("errors"), 500), "last": last})
+    return out
 
 
 def _clean_pc(pc):
@@ -150,11 +179,14 @@ def _clean_pc(pc):
     if not isinstance(pc, dict):
         return None
     cpu = pc.get("cpu")
-    return {"overall": pc.get("overall") if pc.get("overall") in PC_LEVELS else "ok",
-            "apps": [a for a in (pc.get("apps") or [])[:12] if a in PC_LEVELS],
-            "tasks_running": max(0, min(20, int(pc.get("tasks_running") or 0))),
-            "conns": max(0, int(pc.get("conns") or 0)),
-            "cpu": max(0.0, min(100.0, float(cpu))) if isinstance(cpu, (int, float)) else None}
+    out = {"overall": pc.get("overall") if pc.get("overall") in PC_LEVELS else "ok",
+           "apps": [a for a in (pc.get("apps") or [])[:12] if a in PC_LEVELS],
+           "tasks_running": max(0, min(20, int(pc.get("tasks_running") or 0))),
+           "conns": max(0, int(pc.get("conns") or 0)),
+           "cpu": max(0.0, min(100.0, float(cpu))) if isinstance(cpu, (int, float)) else None}
+    if "pipe" in pc:
+        out["pipe"] = _clean_pipe(pc["pipe"])
+    return out
 
 
 # The root daemon dumps each frame here (raw RGB, row by row, 5x60x3 bytes) for the live preview.

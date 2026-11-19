@@ -779,6 +779,303 @@ def homelab(cv, ctx):
                 add(cv, r, c + dc, scale(rgb, k * (1 if dc == 0 else 0.4)))
 
 
+# ---------------------------------------------------------------- data pipelines
+#
+# ctx["claude"]["pc"]["pipe"] (from Agent Town's collectors/pipeline.py) lists each data pipeline on
+# the PC: {"k": lane, "st": ok|late|fail|off, "run": task mid-run, "ticks"/"stored"/"picks"/"posts"/
+# "errors": today's counts, "last": {"id": run start (epoch s), "stage", "picks", "err"} or None}.
+# A run's stage climbs tick (started) -> skip (nothing due) or stored -> built -> picks -> posted while
+# Agent Town re-reads its log every 5 s, so both modes see it happen live.
+
+PIPE_LANES = ("nba", "ncaab", "nhl", "cfb", "td", "parlay")
+PIPE_RGB = {"nba": (255, 110, 0), "ncaab": (40, 90, 255), "nhl": (110, 220, 255), "cfb": (40, 220, 60),
+            "td": (255, 40, 160), "parlay": (255, 190, 0)}
+PIPE_STAGES = ("tick", "skip", "stored", "built", "picks", "posted")
+ERR_RGB = (255, 0, 0)
+SPARK_RGB = (255, 255, 255)
+GREY = (90, 90, 100)
+
+
+def _pipe(ctx):
+    """The pipe rows in lane order, or None when Agent Town isn't sending them."""
+    pc = (ctx.get("claude") or {}).get("pc") or {}
+    rows = pc.get("pipe")
+    if not isinstance(rows, list):
+        return None
+    by_k = {r.get("k"): r for r in rows if isinstance(r, dict)}
+    return [by_k.get(k) or {"k": k, "st": "off", "last": None} for k in PIPE_LANES]
+
+
+def _pipe_changes(st, rows):
+    """What happened since the last frame: [(lane index, "new" | "advance", last, previous key)], where a
+    key is (run id, stage, err) and is None for a new run. The first sight of a lane is remembered, not
+    replayed."""
+    seen = st.setdefault("seen", {})
+    out = []
+    for i, row in enumerate(rows):
+        last = row.get("last")
+        if not last:
+            continue
+        key = (last.get("id"), last.get("stage"), bool(last.get("err")))
+        prev = seen.get(row["k"])
+        seen[row["k"]] = key
+        if prev is None or prev == key:
+            continue
+        if prev[0] != key[0]:
+            out.append((i, "new", last, None))
+        else:
+            out.append((i, "advance", last, prev))
+    return out
+
+
+def _stage_at_least(stage, other):
+    return PIPE_STAGES.index(stage) >= PIPE_STAGES.index(other)
+
+
+def no_pipe(cv, ctx):
+    """Agent Town isn't sending pipeline data: six faint lane-coloured dots breathing on the middle row."""
+    k = 0.04 + 0.2 * pulse(ctx["t"], 0.3)
+    for i, lane in enumerate(PIPE_LANES):
+        cv[2][i * 10 + 4] = scale(PIPE_RGB[lane], k)
+
+
+# ---- rain: six lanes of sky over a reservoir
+
+RAIN_W = 10  # columns per lane; the last one is a dark divider
+RAIN_SKY = (0, 1, 2)
+RAIN_POOL = (3, 4)
+
+
+def _rain_drop(st, i, rgb, kind, speed=5.0):
+    col = i * RAIN_W + random.randrange(1, RAIN_W - 2)
+    st["drops"].append({"i": i, "c": col, "y": -0.5, "rgb": rgb, "kind": kind, "v": speed})
+
+
+def rain(cv, ctx):
+    """Collector rain: each pipeline is a lane of sky over its reservoir. A run that finds nothing due
+    drops a thin grey drizzle, a stored snapshot a bright drop in the lane's colour that splashes into
+    the reservoir, new picks white sparks, a failed run a red drop and a red ripple. The reservoir holds
+    one cell per snapshot stored today. A late lane's sky goes dark and blinks dim red (the missed beat);
+    the cloud on the top row glows while that lane's task runs."""
+    rows = _pipe(ctx)
+    if rows is None:
+        no_pipe(cv, ctx)
+        return alert_overlay(cv, ctx)
+    t, dt = ctx["t"], ctx["dt"]
+    st = ctx["state"].setdefault("rain", {"drops": [], "sparks": [], "flash": {}, "amb": {}})
+
+    for i, kind, last, prev_key in _pipe_changes(st, rows):
+        lane = rows[i]["k"]
+        stage, err = last["stage"], last.get("err")
+        prev = prev_key[1] if prev_key else None
+        if err:
+            if not (prev_key and prev_key[2]):  # one red drop when the run first shows an error
+                _rain_drop(st, i, ERR_RGB, "err", 4.0)
+            continue
+        if stage == "skip":
+            _rain_drop(st, i, mix(PIPE_RGB[lane], GREY, 0.7), "skip", 4.0)
+        elif stage in ("stored", "built") and (kind == "new" or not _stage_at_least(prev or "tick", "stored")):
+            _rain_drop(st, i, PIPE_RGB[lane], "stored", 6.0)
+        elif stage == "picks" and (kind == "new" or prev != "picks"):
+            if kind == "new" or not _stage_at_least(prev or "tick", "stored"):
+                _rain_drop(st, i, PIPE_RGB[lane], "stored", 6.0)
+            _rain_drop(st, i, SPARK_RGB, "picks", 5.0)
+        elif stage == "posted":
+            _rain_drop(st, i, SPARK_RGB, "picks", 5.0)
+
+    for i, row in enumerate(rows):
+        lane, c0 = row["k"], i * RAIN_W
+        rgb, status = PIPE_RGB[lane], row.get("st", "off")
+        cols = range(c0, c0 + RAIN_W - 1)
+        if status == "off":
+            fill(cv, scale(LEVEL["idle"], 0.25), cols=cols)
+            continue
+        # the sky: a faint tint of the lane, dark red blinking when the lane missed its beat
+        if status == "late":
+            fill(cv, scale((90, 0, 0), 0.1 + 0.6 * pulse(t, 0.35)), rows=RAIN_SKY, cols=cols)
+        else:
+            fill(cv, scale(rgb, 0.02), rows=RAIN_SKY, cols=cols)
+            running = row.get("run") or ((row.get("last") or {}).get("stage") == "tick")
+            if running:  # the cloud: the top row glows while the task runs
+                for c in cols:
+                    cv[0][c] = scale(mix(rgb, (200, 200, 220), 0.5), 0.12 + 0.2 * pulse(t + c * 0.15, 0.9))
+            # ambient drizzle: barely there, so a real drop always stands out
+            acc = st["amb"].get(lane, 0.0) + 0.25 * dt
+            if acc >= 1:
+                acc -= 1
+                _rain_drop(st, i, scale(rgb, 0.12), "amb", 3.0)
+            st["amb"][lane] = acc
+        # the reservoir: one cell per snapshot stored today, bottom row first; today's errors in red from the right
+        cells = [(r, c) for r in (4, 3) for c in cols]
+        stored, errors = min(row.get("stored") or 0, len(cells)), min(row.get("errors") or 0, len(cells))
+        for n, (r, c) in enumerate(cells):
+            if n < stored:
+                k = 0.3 + (0.15 * pulse(t * 0.5 + c * 0.3, 0.4) if n == stored - 1 else 0.0)
+                cv[r][c] = scale(rgb, k)
+            else:
+                cv[r][c] = scale(rgb, 0.03)
+        for n in range(errors):
+            r, c = cells[len(cells) - 1 - n]
+            cv[r][c] = scale(ERR_RGB, 0.35)
+        if row.get("st") == "fail":  # the reservoir's rim blinks red while the task's last run failed
+            k = 0.15 + 0.85 * pulse(t, 1.2)
+            cv[3][c0], cv[3][c0 + RAIN_W - 2] = scale(ERR_RGB, k), scale(ERR_RGB, k)
+        fk, frgb = _hl_flash_k(st, ("pool", i), t)
+        if fk:
+            for r in RAIN_POOL:
+                for c in cols:
+                    cv[r][c] = mix(cv[r][c], frgb, fk * (0.6 if r == 3 else 0.3))
+
+    # drops fall to the reservoir's surface (row 3)
+    for d in st["drops"]:
+        d["y"] += d["v"] * dt
+        head = int(d["y"])
+        for tail in range(3 if d["kind"] != "amb" else 1):
+            r = head - tail
+            if 0 <= r <= 2:
+                k = (1 - tail / 3) ** 1.5
+                add(cv, r, d["c"], scale(d["rgb"], k))
+                if d["kind"] == "stored" and tail == 0:
+                    add(cv, r, d["c"] + 1, scale(d["rgb"], 0.6))  # a fat drop
+        if d["y"] >= 3 and not d.get("landed"):
+            d["landed"] = True
+            if d["kind"] == "stored":
+                _hl_flash(st, ("pool", d["i"]), d["rgb"], t, 0.8)
+            elif d["kind"] == "err":
+                _hl_flash(st, ("pool", d["i"]), ERR_RGB, t, 1.6)
+            elif d["kind"] == "picks":
+                for _ in range(5):
+                    st["sparks"].append({"x": d["c"] + random.uniform(-1.5, 1.5), "y": 2.8,
+                                         "vx": random.uniform(-3, 3), "vy": -random.uniform(3, 6), "life": 1.0})
+            elif d["kind"] == "skip":
+                add(cv, 3, d["c"], scale(GREY, 0.8))
+    st["drops"] = [d for d in st["drops"] if d["y"] < 5][-120:]
+    for s in st["sparks"]:
+        s["x"] += s["vx"] * dt
+        s["y"] += s["vy"] * dt
+        s["vy"] += 9 * dt  # they arc back down
+        s["life"] -= dt * 0.9
+        if s["life"] > 0:
+            plot(cv, s["x"], s["y"], scale(SPARK_RGB, s["life"]))
+    st["sparks"] = [s for s in st["sparks"] if s["life"] > 0 and s["y"] < 4][-60:]
+    # dark dividers between the lanes
+    for i in range(1, len(PIPE_LANES)):
+        fill(cv, BLACK, cols=[i * RAIN_W - 1])
+    return alert_overlay(cv, ctx)
+
+
+# ---- conveyor: collect -> build -> picks -> post
+
+BELT_STATIONS = ((0, 7), (17, 24), (34, 41), (52, 59))  # first and last column of each station
+STATION_RGB = ((0, 150, 170), (120, 70, 220), (230, 170, 0), (88, 101, 242))  # post = Discord blurple
+STAGE_STATION = {"tick": 0, "skip": 0, "stored": 1, "built": 1, "picks": 2, "posted": 3}
+PACKET_SPEED = 12.0  # columns per second
+PACKET_ROW = 2
+REST_S = 8.0  # a finished run's packet waits at its last station this long, then fades
+
+
+def _slot(station, i):
+    """The column a lane's packet rests on inside a station."""
+    return BELT_STATIONS[station][0] + 1 + i
+
+
+def conveyor(cv, ctx):
+    """Conveyor belt: every run is a packet in its pipeline's colour that rides collect -> build ->
+    picks -> post as far as the run really got, live (grey and fading out in collect when nothing was
+    due). The station it reaches flashes; post flashes Discord blurple. A failed run's packet turns red
+    and stays jammed at that station until the lane's next run. The bottom row of each station keeps
+    one dot per pipeline for how far its last run got there. The belt runs faster while any run is in
+    flight."""
+    rows = _pipe(ctx)
+    if rows is None:
+        no_pipe(cv, ctx)
+        return alert_overlay(cv, ctx)
+    t, dt = ctx["t"], ctx["dt"]
+    st = ctx["state"].setdefault("conveyor", {"packets": {}, "flash": {}, "belt": 0.0})
+    packets = st["packets"]  # lane -> packet
+
+    for i, kind, last, _ in _pipe_changes(st, rows):
+        lane = rows[i]["k"]
+        target = STAGE_STATION[last["stage"]]
+        p = packets.get(lane)
+        if kind == "new" or p is None:
+            p = packets[lane] = {"i": i, "x": float(BELT_STATIONS[0][0]), "target": 0, "at": None,
+                                 "skip": False, "err": False, "fade": 1.0}
+        p["target"] = max(p["target"], target)
+        p["skip"] = last["stage"] == "skip"
+        p["err"] = bool(last.get("err"))
+        p["at"] = None  # moving again (or about to re-arrive)
+
+    busy = any(r.get("run") for r in rows) or any(
+        p["x"] != _slot(p["target"], p["i"]) for p in packets.values())
+    st["belt"] += dt * (6.0 if busy else 1.5)
+
+    # the belt between the stations: rails on rows 0 and 4, faint chevrons on rows 1-3
+    for (_, a_end), (b_start, _) in zip(BELT_STATIONS, BELT_STATIONS[1:]):
+        for c in range(a_end + 1, b_start):
+            cv[0][c] = cv[4][c] = (8, 8, 12)
+            for r in (1, 2, 3):
+                on = int(c - st["belt"] - abs(r - 2)) % 4 == 0  # a ">" chevron
+                cv[r][c] = (22, 22, 30) if on else (3, 3, 5)
+
+    # the stations: a dim frame in the station's colour, flashing as packets arrive
+    for s, (a, b) in enumerate(BELT_STATIONS):
+        base = STATION_RGB[s]
+        fk, frgb = _hl_flash_k(st, ("st", s), t)
+        for r in range(4):
+            for c in range(a, b + 1):
+                edge = r == 0 or c in (a, b)
+                cv[r][c] = mix(scale(base, 0.22 if edge else 0.03), frgb, fk * (0.9 if edge else 0.35))
+        # bottom row: one dot per pipeline, lit if its last run got this far
+        cv[4][a] = cv[4][b] = scale(base, 0.22)
+        for i, row in enumerate(rows):
+            last, c = row.get("last"), _slot(s, i)
+            if not last or row.get("st") == "off":
+                cv[4][c] = (2, 2, 4)
+                continue
+            reached = STAGE_STATION[last["stage"]]
+            if last.get("err") and reached == s:
+                cv[4][c] = scale(ERR_RGB, 0.25 + 0.5 * pulse(t, 1.0))
+            elif last["stage"] == "skip":
+                cv[4][c] = scale(GREY, 0.25) if s == 0 else (2, 2, 4)
+            elif reached >= s:
+                cv[4][c] = scale(PIPE_RGB[row["k"]], 0.35)
+            else:
+                cv[4][c] = (2, 2, 4)
+            if row.get("st") == "late" and s == 0:  # missed its beat: the collect dot blinks dim red
+                cv[4][c] = scale((120, 0, 0), pulse(t, 0.35))
+
+    # the packets
+    for lane, p in list(packets.items()):
+        goal = _slot(p["target"], p["i"])
+        if p["x"] < goal:
+            p["x"] = min(goal, p["x"] + PACKET_SPEED * dt)
+        elif p["x"] > goal:  # back to the start of collect for a new run
+            p["x"] = max(goal, p["x"] - PACKET_SPEED * 2 * dt)
+        if p["x"] == goal and p["at"] is None:
+            p["at"] = t
+            if not p["skip"] and p["target"] > 0:
+                _hl_flash(st, ("st", p["target"]), ERR_RGB if p["err"] else
+                          (STATION_RGB[3] if p["target"] == 3 else PIPE_RGB[lane]), t, 0.7)
+        rgb = ERR_RGB if p["err"] else mix(PIPE_RGB[lane], GREY, 0.7) if p["skip"] else PIPE_RGB[lane]
+        row_running = rows[p["i"]].get("run")
+        if p["at"] is not None and not p["err"] and not row_running:
+            idle = t - p["at"]
+            hold = 2.0 if p["skip"] else REST_S
+            if idle > hold:
+                p["fade"] = max(0.0, 1 - (idle - hold) / 2)
+                if p["fade"] == 0:
+                    del packets[lane]
+                    continue
+        k = p["fade"] * ((0.55 + 0.45 * pulse(t, 1.5)) if p["err"] else 1.0)
+        x = int(round(p["x"]))
+        for tail in range(3):
+            if p["at"] is not None and tail:
+                break  # resting: just the dot
+            add(cv, PACKET_ROW, x - tail, scale(rgb, k * (1 - tail / 3) ** 1.5))
+    return alert_overlay(cv, ctx)
+
+
 # ---------------------------------------------------------------- text
 
 # A 5-pixel-tall font. Each glyph is five rows of "#" and "."; most are 3 wide, a few are wider.
@@ -931,6 +1228,7 @@ EFFECTS = {
     "aurora": aurora, "wave": wave, "scanner": scanner, "twinkle": twinkle, "meteor": meteor,
     "fire": fire, "matrix": matrix,
 }
-MONITORS = {"homelab": homelab, "monitor": monitor, "rack": rack, "vitals": vitals}
+MONITORS = {"homelab": homelab, "monitor": monitor, "rack": rack, "vitals": vitals, "rain": rain,
+            "conveyor": conveyor}
 CLAUDE = {"claude_lanes": claude_lanes, "claude_drones": claude_drones, "claude_meter": claude_meter}
 MODES = {**EFFECTS, **MONITORS, **CLAUDE, "text": banner}
