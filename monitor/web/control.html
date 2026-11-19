@@ -78,7 +78,20 @@ table.cal tr:first-child td { height: 18px; border: 0; background: none; }
     <h2>On the wall now</h2>
     <canvas id="live" width="600" height="60" aria-label="Live copy of the LED wall"></canvas>
     <p class="hint" id="liveNote"></p>
-    <div id="legend" hidden>
+    <div class="legend" data-mode="rain" hidden>
+      <div class="lg"><i style="background:linear-gradient(90deg,#ff6e00 16%,#285aff 16% 33%,#6edcff 33% 50%,#28dc3c 50% 66%,#ff28a0 66% 83%,#ffbe00 83%)"></i><b>Lanes</b> NBA, NCAAB, NHL, CFB, NFL (touchdown), parlays, left to right</div>
+      <div class="lg"><i style="background:#5a5a64"></i><b>Grey drizzle</b> a run that found nothing due · <b>bright drop</b> a snapshot stored · <b>white sparks</b> new picks or a Discord post</div>
+      <div class="lg"><i style="background:#ff0000"></i><b>Red drop</b> a run that failed · <b>red cells</b> in the pool count today's failures · rim blinking red = the task's last run failed</div>
+      <div class="lg"><i style="background:#5a0000"></i><b>Dark red sky</b> the lane missed its beat (overdue) · <b>glowing top row</b> its task is running · <b>dim blue</b> not scheduled</div>
+      <div class="lg"><i style="background:#ff6e00"></i><b>Pool</b> one cell per snapshot stored today (parlays: per day tickets were placed); empties at midnight</div>
+    </div>
+    <div class="legend" data-mode="conveyor" hidden>
+      <div class="lg"><i style="background:#0096aa"></i><b>Collect</b> → <b style="color:#a070ff">Build</b> → <b style="color:#e6aa00">Picks</b> → <b style="color:#5865f2">Post</b>: each run is a dot in its sport's colour riding as far as it really got</div>
+      <div class="lg"><i style="background:#5a5a64"></i><b>Grey dot</b> fading in Collect: nothing was due · a station flashes as a run arrives · Post flashes Discord blurple</div>
+      <div class="lg"><i style="background:#ff0000"></i><b>Red dot</b> a failed run, jammed at the station where it broke until that sport's next run</div>
+      <div class="lg"><i style="background:#ff6e00"></i><b>Bottom row</b> of each station: one dot per sport (NBA, NCAAB, NHL, CFB, NFL, parlays) lit if its last run got that far · belt speeds up while a run is in flight</div>
+    </div>
+    <div id="legend" class="legend" data-mode="homelab" hidden>
       <div class="lg"><i style="background:#3c50ff"></i><b>Edges</b> the internet: streaks while collectors download or Claude talks to the API</div>
       <div class="lg"><i style="background:#00b4ff"></i><b>PC</b> left bar overall health · top row one dot per app · rows below one per Claude session (sweeping = working, amber = waiting on you)</div>
       <div class="lg"><i style="background:#ff8c00"></i><b>PC → Pi wire</b> one packet per Claude tool call: orange edit, cyan read, green shell, purple web, pink agent, blue MCP, red fail, white prompt</div>
@@ -145,6 +158,9 @@ const GROUPS = [
     ["homelab", "Homelab", "the whole house"], ["monitor", "Heartbeat", "ECG per laptop"], ["rack", "Rack", "block per service"],
     ["vitals", "Vitals", "health + disk bars"],
   ]],
+  ["Pipelines", [
+    ["rain", "Rain", "a drop per collector run"], ["conveyor", "Conveyor", "collect → build → picks → post"],
+  ]],
   ["Claude", [
     ["claude_lanes", "Lanes", "pulse per tool call"], ["claude_drones", "Drones", "one per session"],
     ["claude_meter", "Blaze", "fire grows with work"],
@@ -198,7 +214,7 @@ function draw() {
   const cal = state.mode === "calibrate";
   $("calSec").hidden = !cal; $("colorSec").hidden = cal;
   if (cal) drawGrid();
-  $("legend").hidden = state.mode !== "homelab";
+  for (const lg of document.querySelectorAll(".legend")) lg.hidden = lg.dataset.mode !== state.mode;
   $("colorSec").style.opacity = USES_COLOR.includes(state.mode) ? 1 : .45;
   $("speedRow").style.opacity = USES_SPEED.includes(state.mode) ? 1 : .45;
 }
