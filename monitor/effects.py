@@ -967,7 +967,12 @@ def rain(cv, ctx):
 # ---- conveyor: collect -> build -> picks -> post
 
 BELT_STATIONS = ((0, 7), (17, 24), (34, 41), (52, 59))  # first and last column of each station
-STATION_RGB = ((0, 150, 170), (120, 70, 220), (230, 170, 0), (88, 101, 242))  # post = Discord blurple
+# High contrast for the belt: the stations and belt are neutral grey so only the runs carry colour, and
+# each pipeline gets a fully saturated colour that stays distinct on the strip (red is kept for errors).
+BELT_RGB = {"nba": (255, 100, 0), "ncaab": (0, 0, 255), "nhl": (0, 255, 255), "cfb": (0, 255, 0),
+            "td": (255, 0, 255), "parlay": (255, 255, 0)}
+STATION_FRAME = (40, 40, 40)
+POST_FLASH = (255, 255, 255)
 STAGE_STATION = {"tick": 0, "skip": 0, "stored": 1, "built": 1, "picks": 2, "posted": 3}
 PACKET_SPEED = 12.0  # columns per second
 PACKET_ROW = 2
@@ -1010,38 +1015,36 @@ def conveyor(cv, ctx):
         p["x"] != _slot(p["target"], p["i"]) for p in packets.values())
     st["belt"] += dt * (6.0 if busy else 1.5)
 
-    # the belt between the stations: rails on rows 0 and 4, faint chevrons on rows 1-3
+    # the belt between the stations: faint grey chevrons on rows 1-3, nothing else
     for (_, a_end), (b_start, _) in zip(BELT_STATIONS, BELT_STATIONS[1:]):
         for c in range(a_end + 1, b_start):
-            cv[0][c] = cv[4][c] = (8, 8, 12)
+            cv[0][c] = cv[4][c] = BLACK
             for r in (1, 2, 3):
                 on = int(c - st["belt"] - abs(r - 2)) % 4 == 0  # a ">" chevron
-                cv[r][c] = (22, 22, 30) if on else (3, 3, 5)
+                cv[r][c] = (16, 16, 16) if on else BLACK
 
-    # the stations: a dim frame in the station's colour, flashing as packets arrive
+    # the stations: a plain grey frame that flashes in the arriving run's colour (white at post)
     for s, (a, b) in enumerate(BELT_STATIONS):
-        base = STATION_RGB[s]
         fk, frgb = _hl_flash_k(st, ("st", s), t)
         for r in range(4):
             for c in range(a, b + 1):
                 edge = r == 0 or c in (a, b)
-                cv[r][c] = mix(scale(base, 0.22 if edge else 0.03), frgb, fk * (0.9 if edge else 0.35))
-        # bottom row: one dot per pipeline, lit if its last run got this far
-        cv[4][a] = cv[4][b] = scale(base, 0.22)
+                cv[r][c] = mix(STATION_FRAME, frgb, fk) if edge else BLACK
+        # bottom row: one dot per pipeline in its colour, lit if its last run got this far
+        cv[4][a] = cv[4][b] = STATION_FRAME
         for i, row in enumerate(rows):
             last, c = row.get("last"), _slot(s, i)
+            cv[4][c] = BLACK
             if not last or row.get("st") == "off":
-                cv[4][c] = (2, 2, 4)
                 continue
             reached = STAGE_STATION[last["stage"]]
             if last.get("err") and reached == s:
-                cv[4][c] = scale(ERR_RGB, 0.25 + 0.5 * pulse(t, 1.0))
+                cv[4][c] = scale(ERR_RGB, 0.3 + 0.7 * pulse(t, 1.0))
             elif last["stage"] == "skip":
-                cv[4][c] = scale(GREY, 0.25) if s == 0 else (2, 2, 4)
+                if s == 0:
+                    cv[4][c] = scale(BELT_RGB[row["k"]], 0.15)  # looked, nothing due: a faint dot
             elif reached >= s:
-                cv[4][c] = scale(PIPE_RGB[row["k"]], 0.35)
-            else:
-                cv[4][c] = (2, 2, 4)
+                cv[4][c] = scale(BELT_RGB[row["k"]], 0.7)
             if row.get("st") == "late" and s == 0:  # missed its beat: the collect dot blinks dim red
                 cv[4][c] = scale((120, 0, 0), pulse(t, 0.35))
 
@@ -1056,8 +1059,8 @@ def conveyor(cv, ctx):
             p["at"] = t
             if not p["skip"] and p["target"] > 0:
                 _hl_flash(st, ("st", p["target"]), ERR_RGB if p["err"] else
-                          (STATION_RGB[3] if p["target"] == 3 else PIPE_RGB[lane]), t, 0.7)
-        rgb = ERR_RGB if p["err"] else mix(PIPE_RGB[lane], GREY, 0.7) if p["skip"] else PIPE_RGB[lane]
+                          (POST_FLASH if p["target"] == 3 else BELT_RGB[lane]), t, 0.9)
+        rgb = ERR_RGB if p["err"] else scale(BELT_RGB[lane], 0.3) if p["skip"] else BELT_RGB[lane]
         row_running = rows[p["i"]].get("run")
         if p["at"] is not None and not p["err"] and not row_running:
             idle = t - p["at"]
@@ -1069,10 +1072,10 @@ def conveyor(cv, ctx):
                     continue
         k = p["fade"] * ((0.55 + 0.45 * pulse(t, 1.5)) if p["err"] else 1.0)
         x = int(round(p["x"]))
-        for tail in range(3):
-            if p["at"] is not None and tail:
-                break  # resting: just the dot
-            add(cv, PACKET_ROW, x - tail, scale(rgb, k * (1 - tail / 3) ** 1.5))
+        resting = p["at"] is not None
+        row = PACKET_ROW if resting else 1 + p["i"] % 3  # moving runs spread over three rows
+        for tail in range(1 if resting else 3):
+            add(cv, row, x - tail, scale(rgb, k * (1 - tail / 3) ** 1.5))
     return alert_overlay(cv, ctx)
 
 
